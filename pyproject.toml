@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "askametric"
+version = "0.1.0"
+description = "Text-2-SQL python package to answer questions using information from databases"
+authors = ["ziakhan04 <khanziaaziz@gmail.com>", "poornimaramesh <poornimaramesh1995@gmail.com>", "edodge <edodge11@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+aiocache = "^0.12.2"
+litellm = "^1.41.23"
+sqlalchemy = "^2.0.31"
+cachetools = "^5.4.0"
+aiosqlite = "^0.20.0"
+greenlet = "^3.0.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
