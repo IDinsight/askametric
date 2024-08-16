@@ -21,7 +21,7 @@ class LLMQueryProcessor:
         self,
         query: dict,
         asession: AsyncSession,
-        which_db: str,
+        metric_db_id: str,
         db_type: str,
         llm: str,
         guardrails_llm: str,
@@ -37,7 +37,7 @@ class LLMQueryProcessor:
         Args:
             query: The user query and query metadata.
             asession: The SQLAlchemy AsyncSession object.
-            which_db: The database id to query.
+            metric_db_id: The database id to query.
             llm: The LLM model to use.
             guardrails_llm: The guardrails LLM model to use.
             sys_message: The system message to use.
@@ -48,7 +48,7 @@ class LLMQueryProcessor:
         """
         self.query = query
         self.asession = asession
-        self.which_db = which_db
+        self.metric_db_id = metric_db_id
         self.db_type = db_type
         self.tools: SQLTools = get_tools()
         self.temperature = 0.1
@@ -135,7 +135,7 @@ class LLMQueryProcessor:
         to answer a question.
         """
         self.relevant_schemas = await self.tools.get_tables_schema(
-            self.best_tables, self.asession, which_db=self.which_db
+            self.best_tables, self.asession, metric_db_id=self.metric_db_id
         )
         prompt = create_best_columns_prompt(
             self.eng_translation,

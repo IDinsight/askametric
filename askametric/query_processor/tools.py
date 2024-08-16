@@ -96,7 +96,7 @@ class SQLTools:
         self,
         table_list: List[str],
         asession: AsyncSession,
-        which_db: str,
+        metric_db_id: str,
     ) -> str:
         """
         Queries the target SQL database and returns the schema of the tables.
@@ -109,24 +109,24 @@ class SQLTools:
         Returns:
         - str: The schema of all the relevant tables in the database.
         """
-        if which_db not in self._schema_cache:
+        if metric_db_id not in self._schema_cache:
             add_to_cache = await self._get_table_schema(table_list, asession)
-            self._schema_cache[which_db] = add_to_cache
+            self._schema_cache[metric_db_id] = add_to_cache
         else:
             # Update cache with tables if not in cache
             tables_not_in_cache = [
                 table
                 for table in table_list
-                if table not in self._schema_cache[which_db]
+                if table not in self._schema_cache[metric_db_id]
             ]
             if tables_not_in_cache:
                 add_to_cache = await self._get_table_schema(
                     tables_not_in_cache, asession
                 )
-                self._schema_cache[which_db].update(add_to_cache)
+                self._schema_cache[metric_db_id].update(add_to_cache)
         # Add the value for each table in table_list to return schema as a string append
         return_schema = "\n".join(
-            [self._schema_cache[which_db][table] for table in table_list]
+            [self._schema_cache[metric_db_id][table] for table in table_list]
         )
         return return_schema
 
