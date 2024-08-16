@@ -136,8 +136,9 @@ class SQLTools:
     async def get_common_column_values(
         self,
         table_column_dict: Dict[str, List[str]],
-        num_common_values: int,
         asession: AsyncSession,
+        num_common_values: int,
+        indicator_vars: list,
     ) -> Dict[str, Dict]:
         """
         Queries the target SQL database and returns the top k (=num_common_values)
@@ -146,27 +147,30 @@ class SQLTools:
         Args:
         - table_column_dict: A dictionary with table names as keys and a list of
             column names as values.
+        - asession (AsyncSession): The SQLAlchemy AsyncSession object.
         - num_common_values (int): The number of common values to return.
+        - indicator_vars (list): The list of indicator variables
 
         Returns:
-        - dict[str, dict]: A Dictionary with the top k common values for each table
+        - dict[str, dict]: A Dictionary with the top common values for each table
             column combination which was asked for.
         """
+        # Create dictionary of tables, their columns, and the columns' types
         result: Dict[str, Dict] = {}
         for table, columns in table_column_dict.items():
             result[table] = {}
             for column in columns:
-                sql_response = await asession.execute(
-                    text(
-                        f"""
-                        SELECT {column}
-                        FROM {table}
-                        GROUP BY {column}
-                        ORDER BY COUNT(*) DESC
-                        LIMIT {num_common_values};
-                        """
-                    )
-                )
+                query = f"""
+                SELECT DISTINCT({column})
+                FROM {table}
+                GROUP BY {column}
+                ORDER BY COUNT(*) DESC
+                """
+
+                if column.lower() not in [var.lower() for var in indicator_vars]:
+                    query += f" LIMIT {num_common_values}"
+
+                sql_response = await asession.execute(text(query + ";"))
                 result[table][column] = sql_response.fetchall()
 
         return result
