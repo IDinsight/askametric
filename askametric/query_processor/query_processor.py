@@ -22,6 +22,7 @@ class LLMQueryProcessor:
         query: dict,
         asession: AsyncSession,
         which_db: str,
+        db_type: str,
         llm: str,
         guardrails_llm: str,
         sys_message: str,
@@ -48,6 +49,7 @@ class LLMQueryProcessor:
         self.query = query
         self.asession = asession
         self.which_db = which_db
+        self.db_type = db_type
         self.tools: SQLTools = get_tools()
         self.temperature = 0.1
         self.llm = llm
@@ -162,6 +164,7 @@ class LLMQueryProcessor:
         )
         prompt = create_sql_generating_prompt(
             self.eng_translation,
+            self.db_type,
             self.relevant_schemas,
             self.top_k_common_values,
             self.column_description,

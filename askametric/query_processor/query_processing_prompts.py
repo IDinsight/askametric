@@ -134,6 +134,7 @@ def create_best_columns_prompt(
 
 def create_sql_generating_prompt(
     query_model: dict,
+    db_type: str,
     relevant_schemas: str,
     top_k_common_values: dict[str, dict],
     columns_description: str,
@@ -150,7 +151,7 @@ def create_sql_generating_prompt(
     <<< {query_model["query_metadata"]} >>>
 
     ===== Relevant Tables =====
-    The query will run on a database with the following schema:
+    The query will run on a {db_type} database with the following schema:
     <<<{relevant_schemas}>>>
 
     ===== Relevant Columns =====
@@ -165,9 +166,10 @@ def create_sql_generating_prompt(
 
 
     ==== Instruction ====
-    Given the above, generate a SQL query that will user's query.
+    Given the above, generate a SQL query that will answer the user's query.
 
-    Always create a SQL query that will run on the above schema.
+    Always create a SQL query that will run on the above schema for the
+    following SQL database type: {db_type}.
 
     Always use the query metadata to construct the SQL query.
 
