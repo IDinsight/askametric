@@ -161,7 +161,7 @@ class SQLTools:
             result[table] = {}
             for column in columns:
                 query = f"""
-                SELECT {column}
+                SELECT {column}, COUNT(*)
                 FROM {table}
                 GROUP BY {column}
                 ORDER BY COUNT(*) DESC
