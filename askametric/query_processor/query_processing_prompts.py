@@ -173,13 +173,13 @@ def create_sql_generating_prompt(
 
     Always use the query metadata to construct the SQL query.
 
-    For complex queries involving SELECT DISTINCT, UNION and ORDER BY,
+    For complex queries involving UNION and ORDER BY,
     use the following and replicate its structure EXACTLY.
     Example:
     For a query like "What are the best-performing and worst-performing districts on
     indicator A?":
     ```
-    SELECT DISTINCT district_name, indicator_A FROM (
+    SELECT district_name, indicator_A FROM (
         SELECT district_name, indicator_A
         FROM table_name
         ORDER BY indicator_A DESC
