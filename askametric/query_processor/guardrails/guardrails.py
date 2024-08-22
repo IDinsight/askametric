@@ -45,12 +45,15 @@ class LLMGuardRails:
         """
         prompt = create_safety_prompt(query, language, script)
         safety_response = await _ask_llm_json(
-            prompt, self.system_message, self.guardrails_llm, self.temperature
+            prompt=prompt,
+            system_message=self.system_message,
+            llm=self.guardrails_llm,
+            temperature=self.temperature,
         )
         self.safe = safety_response["answer"]["safe"] == "True"
         if self.safe is False:
             self.safety_response = safety_response["answer"]["response"]
-            self.guardrails_status["safety"] = GuardRailsStatus.UNSAFE
+            self.guardrails_status[""] = GuardRailsStatus.UNSAFE
         else:
             self.guardrails_status["safety"] = GuardRailsStatus.PASSED
 
@@ -67,7 +70,10 @@ class LLMGuardRails:
             query, language, script, table_description=table_description
         )
         relevance_response = await _ask_llm_json(
-            prompt, self.system_message, self.guardrails_llm, self.temperature
+            prompt=prompt,
+            system_message=self.system_message,
+            llm=self.guardrails_llm,
+            temperature=self.temperature,
         )
         self.relevant = relevance_response["answer"]["relevant"] == "True"
         if self.relevant is False:
