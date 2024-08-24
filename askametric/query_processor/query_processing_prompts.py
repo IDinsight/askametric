@@ -160,8 +160,8 @@ def create_sql_generating_prompt(
 
     ===== Most common values in potentially relevant columns =====
     Here are a list of variables and their top {num_common_values} values. If
-    a variable is in this special list: {indicator_vars}, the list of their unique
-    values is exhaustive.
+    a variable is in this special list: {indicator_vars}, the list of their
+    unique values is exhaustive.
     <<<{top_k_common_values}>>>
 
 
@@ -244,6 +244,46 @@ def create_final_answer_prompt(
     Remember, the field employees don't know what SQL is
     but are roughly familiar with what data is being
     collected a high level.
+    """
+
+    return prompt
+
+
+def create_conversation_summary_prompt(
+    query_model: dict, context: list, context_length: int
+) -> str:
+    """Create prompt for context from previous conversation."""
+    prompt = f"""
+    Here is a question from a field employee -
+    ### Question
+    <<< {query_model["query_text"]} >>>
+
+    ===== Metadata =====
+    Here is useful metadata (might be empty if not available):
+    <<< {query_model["query_metadata"]} >>>
+
+    ===== Previous conversation =====
+    Here is a dictionary with information about the last {context_length}
+    interactions you had with the field employee (might be empty if the
+    conversation is just beginning).
+    <<<{context}>>>
+
+    ===== Instruction =====
+    Use the information from the previous conversation, and summarize what is relevant
+    to the current question. Make sure to include information about the relevant tables
+    and columns. Also use the metadata to construct the summary.
+
+    If there is no previous conversating, simply output "This is the start of the
+    conversation" as the summary.
+
+    If the previous conversation ALREADY CONTAINS the answer to the current question,
+    output a summary AND the final answer.
+
+    If the query contains SQL code, include the SQL code in the summary.
+
+    ===== Answer Format =====
+    python parsable json with two keys "conversation_summary" and "final_answer".
+    Leave "final_answer" empty if the context does NOT contain the final answer.
     """
 
     return prompt
