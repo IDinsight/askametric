@@ -269,21 +269,21 @@ def create_conversation_summary_prompt(
     <<<{context}>>>
 
     ===== Instruction =====
-    Use the information from the previous conversation, and summarize what is relevant
-    to the current question. Make sure to include information about the relevant tables
-    and columns. Also use the metadata to construct the summary.
-
-    If there is no previous conversating, simply output "This is the start of the
-    conversation" as the summary.
-
-    If the previous conversation ALREADY CONTAINS the answer to the current question,
-    output a summary AND the final answer.
-
-    If the query contains SQL code, include the SQL code in the summary.
+    I need you to do three things using the information from the previous
+    conversation:
+    1. Summarize what is relevant to the current question. Make sure to include
+    information about the relevant tables and columns. Also use the metadata to
+    construct the summary. If there is no previous conversation, simply output
+    "This is the start of the conversation" as the summary.
+    2. If the query is incomplete or vague, use the previous conversation to
+    complete the query. If the query is already complete, copy the original query
+    EXACTLY.
+    3. If the previous conversation ALREADY CONTAINS the answer to the current
+    query, output the final answer. Otherwise, leave the final answer empty.
 
     ===== Answer Format =====
-    python parsable json with two keys "conversation_summary" and "final_answer".
-    Leave "final_answer" empty if the context does NOT contain the final answer.
+    python parsable json with three keys "conversation_summary",
+    "updated_query_text" and "final_answer".
     """
 
     return prompt

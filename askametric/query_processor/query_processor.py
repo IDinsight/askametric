@@ -13,36 +13,7 @@ from .query_processing_prompts import (
     get_query_language_prompt,
 )
 from .tools import SQLTools, get_tools
-
-
-def get_result_dict() -> dict:
-    """Return a dictionary with the structure of the result."""
-    return {
-        "prompts": {
-            "language_prompt": "",
-            "best_tables_prompt": "",
-            "best_columns_prompt": "",
-            "sql_prompt": "",
-            "final_answer_prompt": "",
-            "conversation_summary_prompt": "",
-            "prompt_to_generate_sql": "",
-        },
-        "text_response": "",
-        "query_language": "",
-        "query_script": "",
-        "eng_translation": "",
-        "best_tables": [],
-        "best_columns": [],
-        "schema_used": {},
-        "sql_query": "",
-        "total_cost": 0.0,
-        "processing_cost": 0.0,
-        "guardrails_cost": 0.0,
-        "guardrails_status": {},
-        "model_used": "",
-        "guardrails_model": "",
-        "conversation_summary": "",
-    }
+from .schemas import Prompts, UserQueryResponse
 
 
 class LLMQueryProcessor:
@@ -90,25 +61,36 @@ class LLMQueryProcessor:
         self.num_common_values = num_common_values
         self.context_length = context_length
 
-        self.guardrails: LLMGuardRails = LLMGuardRails(
-            gurdrails_llm=guardrails_llm, sys_message=self.system_message
-        )
-        self.cost: float = 0.0
         self.context: list[dict] = []
-        self.context_keys = ["query", "text_response", "sql_query", "relevant_schemas"]
+        self.context_keys = ["text_response", "sql_query", "relevant_schemas"]
+
+    def _update_results(self) -> None:
+        """
+        Update the user query response with the results.
+        """
+        self.user_query_response.prompts = self.prompts
+        self.user_query_response.processing_cost = self.cost
+        self.user_query_response.guardrails_cost = self.guardrails.cost
+        self.user_query_response.total_cost = self.cost + self.guardrails.cost
+        self.user_query_response.guardrails_status = self.guardrails.guardrails_status
+
+    def _update_context(self) -> None:
+        """
+        Update the context with the results.
+        """
+        context_dict = {"query": self.query}
+        for k in self.context_keys:
+            context_dict[k] = getattr(self.user_query_response, k)
+        self.context.append(context_dict)
+        self.context = self.context[-self.context_length :]
 
     @track_time(create_class_attr="timings")
-    async def _get_query_language_from_llm(self, query: dict) -> tuple:
+    async def _get_query_language_from_llm(self) -> None:
         """
         The function asks the LLM model to identify the language
         of the user's query.
-
-        Args:
-            query: The user's query. It is a dictionary with the
-                following keys: query_text, query_metadata.
         """
-        system_message, prompt = get_query_language_prompt(query["query_text"])
-        language_prompt = prompt
+        system_message, prompt = get_query_language_prompt(self.query["query_text"])
 
         query_language_llm_response = await _ask_llm_json(
             prompt=prompt,
@@ -116,29 +98,26 @@ class LLMQueryProcessor:
             llm=self.llm,
             temperature=self.temperature,
         )
-        query_language = query_language_llm_response["answer"]["language"]
-        query_script = query_language_llm_response["answer"]["script"]
+
+        self.prompts.language_prompt = prompt
+        self.user_query_response.query_language = query_language_llm_response["answer"][
+            "language"
+        ]
+        self.user_query_response.query_script = query_language_llm_response["answer"][
+            "script"
+        ]
 
         self.cost += float(query_language_llm_response["cost"])
-        return language_prompt, query_language, query_script
 
     @track_time(create_class_attr="timings")
-    async def _english_translation(
-        self, query: dict, query_language: str, query_script: str
-    ) -> None:
+    async def _english_translation(self) -> dict:
         """
         The function asks the LLM model to translate the user query into English
-
-        Args:
-            query: The user's query. It is a dictionary with the
-                following keys: query_text, query_metadata.
-            query_language: The language of the user's query.
-            query_script: The script of the user's query.
         """
         system_message, prompt = english_translation_prompt(
-            query_model=query,
-            query_language=query_language,
-            query_script=query_script,
+            query_model=self.query,
+            query_language=self.user_query_response.query_language,
+            query_script=self.user_query_response.query_script,
         )
 
         eng_translation_llm_response = await _ask_llm_json(
@@ -149,18 +128,21 @@ class LLMQueryProcessor:
         )
 
         eng_translation = eng_translation_llm_response["answer"]
+        self.user_query_response.eng_translation = eng_translation["query_text"]
 
         self.cost += float(eng_translation_llm_response["cost"])
         return eng_translation
 
     @track_time(create_class_attr="timings")
-    async def _get_conversation_summary_from_llm(self, query: dict) -> tuple:
+    async def _get_conversation_summary_from_llm(self) -> None:
         """
         The function asks the LLM model to summarize the context
         of the previous conversation.
         """
         prompt = create_conversation_summary_prompt(
-            query_model=query, context=self.context, context_length=self.context_length
+            query_model=self.eng_translation,
+            context=self.context,
+            context_length=self.context_length,
         )
         convo_summary_llm_response = await _ask_llm_json(
             prompt=prompt,
@@ -168,99 +150,86 @@ class LLMQueryProcessor:
             llm=self.llm,
             temperature=self.temperature,
         )
-        convo_summary = convo_summary_llm_response["answer"]["conversation_summary"]
-        final_answer = convo_summary_llm_response["answer"]["final_answer"]
+
+        self.prompts.conversation_summary_prompt = prompt
+        self.user_query_response.conversation_summary = convo_summary_llm_response[
+            "answer"
+        ]["conversation_summary"]
+        self.user_query_response.updated_query_text = convo_summary_llm_response[
+            "answer"
+        ]["updated_query_text"]
+        self.user_query_response.text_response = convo_summary_llm_response["answer"][
+            "final_answer"
+        ]
+
         self.cost += float(convo_summary_llm_response["cost"])
 
-        return prompt, convo_summary, final_answer
-
     @track_time(create_class_attr="timings")
-    async def _get_best_tables_from_llm(self, query: dict, context: str = "") -> tuple:
+    async def _get_best_tables_from_llm(self) -> None:
         """
         The function asks the LLM model to identify the best
         tables to answer a question.
-
-        Args:
-            query: The user's query. It is a dictionary with the
-                following keys: query_text, query_metadata.
-            context: The context of the previous queries.
         """
-        prompt = create_best_tables_prompt(query, self.table_description)
+        prompt = create_best_tables_prompt(self.updated_query, self.table_description)
         best_tables_llm_response = await _ask_llm_json(
             prompt=prompt,
             system_message=self.system_message,
-            context_message=context,
+            context_message=self.user_query_response.conversation_summary,
             llm=self.llm,
             temperature=self.temperature,
         )
 
-        best_tables = best_tables_llm_response["answer"]["response_sources"]
+        self.prompts.best_tables_prompt = prompt
+        self.user_query_response.best_tables = best_tables_llm_response["answer"][
+            "response_sources"
+        ]
         self.cost += float(best_tables_llm_response["cost"])
-        return prompt, best_tables
 
     @track_time(create_class_attr="timings")
-    async def _get_best_columns_from_llm(
-        self, query: dict, best_tables: list, context: str = ""
-    ) -> tuple:
+    async def _get_best_columns_from_llm(self) -> None:
         """
         The function asks the LLM model to identify the best columns
         to answer a question.
-
-        Args:
-            query: The user's query. It is a dictionary with the
-                following keys: query_text, query_metadata.
-            best_tables: The best tables identified to answer the question.
-            context: The context of the previous queries.
         """
-        relevant_schemas = await self.tools.get_tables_schema(
-            best_tables, self.asession, metric_db_id=self.metric_db_id
+        self.user_query_response.relevant_schemas = await self.tools.get_tables_schema(
+            self.user_query_response.best_tables,
+            self.asession,
+            metric_db_id=self.metric_db_id,
         )
+
         prompt = create_best_columns_prompt(
-            query,
-            relevant_schemas,
+            self.updated_query,
+            self.user_query_response.relevant_schemas,
             columns_description=self.column_description,
         )
         best_columns_llm_response = await _ask_llm_json(
             prompt=prompt,
             system_message=self.system_message,
-            context_message=context,
+            context_message=self.user_query_response.conversation_summary,
             llm=self.llm,
             temperature=self.temperature,
         )
 
-        best_columns = best_columns_llm_response["answer"]
+        self.prompts.best_columns_prompt = prompt
+        self.user_query_response.best_columns = best_columns_llm_response["answer"]
         self.cost += float(best_columns_llm_response["cost"])
-        return prompt, relevant_schemas, best_columns
 
     @track_time(create_class_attr="timings")
-    async def _get_sql_query_from_llm(
-        self,
-        query: dict,
-        best_columns: dict,
-        relevant_schemas: dict,
-        context: str = "",
-    ) -> tuple:
+    async def _get_sql_query_from_llm(self) -> None:
         """
         The function asks the LLM model to generate a SQL query to
         answer the user's question.
-
-        Args:
-            query: The user's query. It is a dictionary with the
-                following keys: query_text, query_metadata.
-            best_columns: The best columns identified to answer the question.
-            relevant_schemas: The relevant schemas of the tables.
-            context: The context of the previous queries.
         """
         top_k_common_values = await self.tools.get_common_column_values(
-            table_column_dict=best_columns,
+            table_column_dict=self.user_query_response.best_columns,
             asession=self.asession,
             num_common_values=self.num_common_values,
             indicator_vars=self.indicator_vars,
         )
         prompt = create_sql_generating_prompt(
-            query,
+            self.updated_query,
             self.db_type,
-            str(relevant_schemas),
+            str(self.user_query_response.relevant_schemas),
             top_k_common_values,
             self.column_description,
             self.num_common_values,
@@ -270,60 +239,46 @@ class LLMQueryProcessor:
         sql_query_llm_response = await _ask_llm_json(
             prompt=prompt,
             system_message=self.system_message,
-            context_message=context,
+            context_message=self.user_query_response.conversation_summary,
             llm=self.llm,
             temperature=self.temperature,
         )
 
-        sql_query = sql_query_llm_response["answer"]["sql"]
+        self.prompts.prompt_to_generate_sql = prompt
+        self.user_query_response.sql_query = sql_query_llm_response["answer"]["sql"]
         self.cost += float(sql_query_llm_response["cost"])
 
-        return prompt, sql_query
-
     @track_time(create_class_attr="timings")
-    async def _get_final_answer_from_llm(
-        self,
-        query: dict,
-        sql_query: str,
-        query_language: str,
-        query_script: str,
-        context: str = "",
-    ) -> tuple:
+    async def _get_final_answer_from_llm(self) -> None:
         """
         The function asks the LLM model to generate the final
         answer to the user's question.
-
-        Args:
-            query: The user's query. It is a dictionary with the
-                following keys: query_text, query_metadata.
-            sql_query: The SQL query generated to answer the user's question.
-            query_language: The language of the user's query.
-            query_script: The script of the user's query.
-            context: The context of the previous queries.
         """
-        sql_result = await self.tools.run_sql(sql_query, self.asession)
+        sql_result = await self.tools.run_sql(
+            self.user_query_response.sql_query, self.asession
+        )
         prompt = create_final_answer_prompt(
-            query,
-            sql_query,
+            self.updated_query,
+            self.user_query_response.sql_query,
             sql_result,
-            query_language,
-            query_script,
+            self.user_query_response.query_language,
+            self.user_query_response.query_script,
         )
         final_answer_llm_response = await _ask_llm_json(
             prompt=prompt,
             system_message=self.system_message,
-            context_message=context,
+            context_message=self.user_query_response.conversation_summary,
             llm=self.llm,
             temperature=self.temperature,
         )
 
-        final_answer = final_answer_llm_response["answer"]["answer"]
+        self.user_query_response.text_response = final_answer_llm_response["answer"][
+            "answer"
+        ]
         self.cost += float(final_answer_llm_response["cost"])
 
-        return prompt, sql_result, final_answer
-
     @track_time(create_class_attr="timings")
-    async def process_query(self, query: dict) -> dict:
+    async def process_query(self, query: dict) -> None:
         """
         The function processes the user query and returns the final answer.
 
@@ -331,132 +286,84 @@ class LLMQueryProcessor:
             query: The user's query. It is a dictionary with the
                 following keys: query_text, query_metadata.
         """
-        result_dict = get_result_dict()
+        # --- Create / overwrite class attributes ---
+        self.query = query
+        self.cost = 0.0
+        self.user_query_response = UserQueryResponse()
+        self.guardrails = LLMGuardRails(self.llm, self.system_message)
+        self.prompts = Prompts()
 
-        result_dict["query"] = query
-
+        # --- Begin processing the query ---
         # Get query language
-        (
-            result_dict["prompts"]["language_prompt"],
-            result_dict["query_language"],
-            result_dict["query_script"],
-        ) = await self._get_query_language_from_llm(query=query)
+        await self._get_query_language_from_llm()
 
         # Translate query into English to be used for LLM's processing steps
-        eng_translation = await self._english_translation(
-            query=query,
-            query_language=result_dict["query_language"],
-            query_script=result_dict["query_script"],
-        )
-        result_dict["eng_translation"] = eng_translation["query_text"]
+        self.eng_translation = await self._english_translation()
 
         # Check query for code
-        code_response = await self.guardrails.check_code(
-            query=eng_translation["query_text"]
-        )
+        await self.guardrails.check_code(query=self.eng_translation["query_text"])
         if self.guardrails.code is True:
-            result_dict["text_response"] = code_response
-            result_dict["processing_cost"] = self.cost
+            self.user_query_response.text_response = self.guardrails.code_response
+            self._update_results()
 
-            self.cost = 0.0
-
-            return result_dict
+            return None
 
         # Get context for previous queries
-        (
-            result_dict["prompts"]["conversation_summary_prompt"],
-            result_dict["conversation_summary"],
-            result_dict["text_response"],
-        ) = await self._get_conversation_summary_from_llm(query=query)
+        await self._get_conversation_summary_from_llm()
+        self.updated_query = {
+            "query_text": self.user_query_response.updated_query_text,
+            "query_metadata": self.eng_translation["query_metadata"],
+        }
 
-        if result_dict["text_response"] != "":
-            result_dict["processing_cost"] = self.cost
+        if self.user_query_response.text_response != "":
+            self._update_results()
 
-            self.cost = 0.0
+            return None
 
-            return result_dict
-
-        # Check query safety
+        # Check query safety <-- need to do this after getting context
+        # because the context is required to asses safety and relevance
         await self.guardrails.check_safety(
-            query=eng_translation["query_text"],
-            language=result_dict["query_language"],
-            script=result_dict["query_script"],
-            context=result_dict["conversation_summary"],
+            query=self.updated_query["query_text"],
+            language=self.user_query_response.query_language,
+            script=self.user_query_response.query_script,
+            context=self.user_query_response.conversation_summary,
         )
         if self.guardrails.safe is False:
-            result_dict["text_response"] = self.guardrails.safety_response
-            result_dict["processing_cost"] = self.cost
+            self.user_query_response.text_response = self.guardrails.safety_response
+            self._update_results()
 
-            self.cost = 0.0
+            return None
 
-            return result_dict
-
-        # Check answer relevance
+        # Check answer relevance <-- need to do this after getting context
+        # because the context is required to asses safety and relevance
         await self.guardrails.check_relevance(
-            query=eng_translation["query_text"],
-            language=result_dict["query_language"],
-            script=result_dict["query_script"],
+            query=self.updated_query["query_text"],
+            language=self.user_query_response.query_language,
+            script=self.user_query_response.query_script,
             table_description=self.table_description,
-            context=result_dict["conversation_summary"],
+            context=self.user_query_response.conversation_summary,
         )
 
         if self.guardrails.relevant is False:
-            result_dict["text_response"] = self.guardrails.relevance_response
-            result_dict["processing_cost"] = self.cost
+            self.user_query_response.text_response = self.guardrails.relevance_response
+            self._update_results()
 
-            self.cost = 0.0
-
-            return result_dict
+            return None
 
         # Get best tables
-        (
-            result_dict["prompts"]["best_tables_prompt"],
-            result_dict["best_tables"],
-        ) = await self._get_best_tables_from_llm(
-            query=eng_translation,
-            context=result_dict["conversation_summary"],
-        )
+        await self._get_best_tables_from_llm()
 
         # Get best columns
-        (
-            result_dict["prompts"]["best_columns_prompt"],
-            result_dict["relevant_schemas"],
-            result_dict["best_columns"],
-        ) = await self._get_best_columns_from_llm(
-            query=eng_translation,
-            best_tables=result_dict["best_tables"],
-            context=result_dict["conversation_summary"],
-        )
+        await self._get_best_columns_from_llm()
 
         # Get SQL query
-        (
-            result_dict["prompts"]["top_k_column_values_prompt"],
-            result_dict["sql_query"],
-        ) = await self._get_sql_query_from_llm(
-            query=eng_translation,
-            best_columns=result_dict["best_columns"],
-            relevant_schemas=result_dict["relevant_schemas"],
-            context=result_dict["conversation_summary"],
-        )
+        await self._get_sql_query_from_llm()
 
         # Get final answer
-        (
-            result_dict["prompts"]["final_answer_prompt"],
-            result_dict["sql_result"],
-            result_dict["text_response"],
-        ) = await self._get_final_answer_from_llm(
-            query=eng_translation,
-            sql_query=result_dict["sql_query"],
-            query_language=result_dict["query_language"],
-            query_script=result_dict["query_script"],
-            context=result_dict["conversation_summary"],
-        )
+        await self._get_final_answer_from_llm()
 
-        result_dict["cost"] = self.cost
+        # --- Update user query response ---
+        self._update_results()
 
-        self.context.append({k: result_dict[k] for k in self.context_keys})
-
-        self.context = self.context[-self.context_length :]
-        self.cost = 0.0
-
-        return result_dict
+        # --- Update context ---
+        self._update_context()
