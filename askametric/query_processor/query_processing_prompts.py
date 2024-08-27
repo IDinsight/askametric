@@ -32,6 +32,42 @@ def get_query_language_prompt(query_text: str) -> tuple[str, str]:
     return system_message, prompt
 
 
+def english_translation_prompt(
+    query_model: dict, query_language: str, query_script: str
+) -> tuple[str, str]:
+    """Create prompt to translate the original query into english for pipeline"""
+
+    system_message = "You are a highly-skilled linguist and polyglot.\
+              Translate the user query into English."
+
+    prompt = f"""
+    Here is a question from a field employee who needs some text translated
+    to English.
+
+    ===== Question =====
+    <<< {query_model["query_text"]} >>>
+
+    ===== Metadata =====
+    Here is useful metadata (might be empty if not available):
+    <<< {query_model["query_metadata"]} >>>
+
+    ===== Current language =====
+    The user query is currently in the following language:
+    <<< {query_language} >>>
+
+    ===== Current language script =====
+    The user query is currently using the following script:
+    <<< {query_script} >>>
+
+    Take a deep breath and translate the text as accurately as possible.
+
+    Only, reply in a python parsable json with key "query_text"
+    value being the user query translated into English and "query_metadata"
+    value being any available metadata translated into English.
+    """
+    return system_message, prompt
+
+
 def create_best_tables_prompt(query_model: dict, table_description: str) -> str:
     """Create prompt for best tables question."""
     prompt = f"""
@@ -48,7 +84,8 @@ def create_best_tables_prompt(query_model: dict, table_description: str) -> str:
     {table_description}
 
     ===== Answer Format =====
-    python parsable json with key "response_sources". Tables in a list.
+    python parsable json with key "response_sources" and the value is
+    JUST a list of tables.
 
     ==== Remember ====
     The person who is asking the question does not know about different codes or ids.
@@ -97,10 +134,12 @@ def create_best_columns_prompt(
 
 def create_sql_generating_prompt(
     query_model: dict,
+    db_type: str,
     relevant_schemas: str,
-    top_k_common_values: str,
+    top_k_common_values: dict[str, dict],
     columns_description: str,
     num_common_values: int,
+    indicator_vars: list,
 ) -> str:
     """Create prompt for generating SQL query."""
     prompt = f"""
@@ -112,23 +151,48 @@ def create_sql_generating_prompt(
     <<< {query_model["query_metadata"]} >>>
 
     ===== Relevant Tables =====
-    The query will run on a database with the following schema:
+    The query will run on a {db_type} database with the following schema:
     <<<{relevant_schemas}>>>
 
     ===== Relevant Columns =====
     Here is the description of columns (Might be empty if not available)
     <<< {columns_description} >>>
 
-    ===== {num_common_values} most common values in potentially relevant columns =====
+    ===== Most common values in potentially relevant columns =====
+    Here are a list of variables and their top {num_common_values} values. If
+    a variable is in this special list: {indicator_vars}, the list of their unique
+    values is exhaustive.
     <<<{top_k_common_values}>>>
 
 
     ==== Instruction ====
-    Given the above, generate a SQL query that will user's query.
+    Given the above, generate a SQL query that will answer the user's query.
 
-    Always create a SQL query that will run on the above schema.
+    Always create a SQL query that will run on the above schema for the
+    following SQL database type: {db_type}.
 
     Always use the query metadata to construct the SQL query.
+
+    For complex queries involving UNION and ORDER BY,
+    use the following and replicate its structure EXACTLY.
+    Example:
+    For a query like "What are the best-performing and worst-performing districts on
+    indicator A?":
+    ```
+    SELECT district_name, indicator_A FROM (
+        SELECT district_name, indicator_A
+        FROM table_name
+        ORDER BY indicator_A DESC
+        LIMIT 1
+    ) AS top_districts
+    UNION ALL
+    SELECT district_name, indicator_A FROM (
+        SELECT district_name, indicator_A
+        FROM table_name
+        ORDER BY indicator_A ASC
+        LIMIT 1
+    ) AS bottom_districts;
+    ```
 
     ===== Answer Format =====
     python parsable json with the key being "sql" and value being the sql code.

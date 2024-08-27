@@ -13,7 +13,12 @@ sqlalchemy = "^2.0.31"
 cachetools = "^5.4.0"
 aiosqlite = "^0.20.0"
 greenlet = "^3.0.3"
+pymysql = "^1.1.1"
+aiomysql = "^0.2.0"
 
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.8.0"
 
 [build-system]
 requires = ["poetry-core"]
