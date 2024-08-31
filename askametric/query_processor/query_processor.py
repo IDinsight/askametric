@@ -54,6 +54,7 @@ class LLMQueryProcessor:
         self.tools: SQLTools = get_tools()
         self.temperature: float = 0.1
         self.llm = llm
+        self.guardrails_llm = guardrails_llm
         self.system_message = sys_message
         self.table_description = db_description
         self.column_description = column_description
@@ -62,7 +63,7 @@ class LLMQueryProcessor:
         self.context_length = context_length
 
         self.context: list[dict] = []
-        self.context_keys = ["text_response", "sql_query", "relevant_schemas"]
+        self.context_keys = ["text_response", "sql_query"]
 
     def _update_results(self) -> None:
         """
@@ -139,30 +140,40 @@ class LLMQueryProcessor:
         The function asks the LLM model to summarize the context
         of the previous conversation.
         """
-        prompt = create_conversation_summary_prompt(
-            query_model=self.eng_translation,
-            context=self.context,
-            context_length=self.context_length,
-        )
-        convo_summary_llm_response = await _ask_llm_json(
-            prompt=prompt,
-            system_message=self.system_message,
-            llm=self.llm,
-            temperature=self.temperature,
-        )
+        if len(self.context) > 0:
+            prompt = create_conversation_summary_prompt(
+                query_model=self.eng_translation,
+                context=self.context,
+                context_length=self.context_length,
+            )
+            convo_summary_llm_response = await _ask_llm_json(
+                prompt=prompt,
+                system_message=self.system_message,
+                llm=self.llm,
+                temperature=self.temperature,
+            )
+            self.user_query_response.conversation_summary = convo_summary_llm_response[
+                "answer"
+            ]["conversation_summary"]
+            self.user_query_response.updated_query_text = convo_summary_llm_response[
+                "answer"
+            ]["updated_query_text"]
+            self.user_query_response.text_response = convo_summary_llm_response[
+                "answer"
+            ]["final_answer"]
+
+            self.cost += float(convo_summary_llm_response["cost"])
+        else:
+            prompt = ""
+            self.user_query_response.conversation_summary = (
+                "This is the beginning of the conversation."
+            )
+            self.user_query_response.updated_query_text = self.eng_translation[
+                "query_text"
+            ]
+            self.user_query_response.text_response = ""
 
         self.prompts.conversation_summary_prompt = prompt
-        self.user_query_response.conversation_summary = convo_summary_llm_response[
-            "answer"
-        ]["conversation_summary"]
-        self.user_query_response.updated_query_text = convo_summary_llm_response[
-            "answer"
-        ]["updated_query_text"]
-        self.user_query_response.text_response = convo_summary_llm_response["answer"][
-            "final_answer"
-        ]
-
-        self.cost += float(convo_summary_llm_response["cost"])
 
     @track_time(create_class_attr="timings")
     async def _get_best_tables_from_llm(self) -> None:
@@ -290,7 +301,7 @@ class LLMQueryProcessor:
         self.query = query
         self.cost = 0.0
         self.user_query_response = UserQueryResponse()
-        self.guardrails = LLMGuardRails(self.llm, self.system_message)
+        self.guardrails = LLMGuardRails(self.guardrails_llm, self.system_message)
         self.prompts = Prompts()
 
         # --- Begin processing the query ---
@@ -314,11 +325,6 @@ class LLMQueryProcessor:
             "query_text": self.user_query_response.updated_query_text,
             "query_metadata": self.eng_translation["query_metadata"],
         }
-
-        if self.user_query_response.text_response != "":
-            self._update_results()
-
-            return None
 
         # Check query safety <-- need to do this after getting context
         # because the context is required to asses safety and relevance
@@ -346,6 +352,11 @@ class LLMQueryProcessor:
 
         if self.guardrails.relevant is False:
             self.user_query_response.text_response = self.guardrails.relevance_response
+            self._update_results()
+
+            return None
+
+        if self.user_query_response.text_response != "":
             self._update_results()
 
             return None

@@ -1,17 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class UserQueryBase(BaseModel):
-    """
-    Pydantic model for query APIs
-    """
-
-    query_text: str
-    query_metadata: dict = {}
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class Prompts(BaseModel):
     """
     Pydantic model for prompts

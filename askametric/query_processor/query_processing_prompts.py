@@ -273,8 +273,7 @@ def create_conversation_summary_prompt(
     conversation:
     1. Summarize what is relevant to the current question. Make sure to include
     information about the relevant tables and columns. Also use the metadata to
-    construct the summary. If there is no previous conversation, simply output
-    "This is the start of the conversation" as the summary.
+    construct the summary.
     2. If the query is incomplete or vague, use the previous conversation to
     complete the query. If the query is already complete, copy the original query
     EXACTLY.
