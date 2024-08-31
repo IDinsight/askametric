@@ -4,6 +4,7 @@ from ...utils import _ask_llm_json
 from .guardrails_prompts import (
     create_relevance_prompt,
     create_safety_prompt,
+    create_check_code_prompt,
 )
 
 
@@ -14,6 +15,7 @@ class GuardRailsStatus(Enum):
     PASSED = "Passed"
     IRRELEVANT = "Query Irrelevant"
     UNSAFE = "Query unsafe"
+    CONTAINS_CODE = "Query contains code"
 
 
 class LLMGuardRails:
@@ -34,18 +36,51 @@ class LLMGuardRails:
         self.guardrails_status = {
             "relevance": GuardRailsStatus.DID_NOT_RUN,
             "safety": GuardRailsStatus.DID_NOT_RUN,
+            "contains_code": GuardRailsStatus.DID_NOT_RUN,
         }
 
         self.safety_response = ""
         self.relevance_response = ""
+        self.code_response = ""
 
-    async def check_safety(self, query: str, language: str, script: str) -> dict:
+    async def check_code(
+        self,
+        query: str,
+    ) -> dict:
         """
-        Handle the PII in the query.
+        Handle the code in the query.
         """
-        prompt = create_safety_prompt(query, language, script)
+        prompt = create_check_code_prompt(query)
+
+        code_response = await _ask_llm_json(
+            prompt=prompt,
+            system_message=self.system_message,
+            llm=self.guardrails_llm,
+            temperature=self.temperature,
+        )
+        self.code = code_response["answer"]["contains_code"] == "True"
+        if self.code is True:
+            self.code_response = code_response["answer"]["response"]
+            self.guardrails_status["contains_code"] = GuardRailsStatus.CONTAINS_CODE
+        else:
+            self.guardrails_status["contains_code"] = GuardRailsStatus.PASSED
+
+        self.cost += float(code_response["cost"])
+        return code_response
+
+    async def check_safety(
+        self, query: str, language: str, script: str, context: str
+    ) -> dict:
+        """
+        Handle the PII/DML/prompt injection in the query.
+        """
+        prompt = create_safety_prompt(query, language, script, context=context)
+
         safety_response = await _ask_llm_json(
-            prompt, self.system_message, self.guardrails_llm, self.temperature
+            prompt=prompt,
+            system_message=self.system_message,
+            llm=self.guardrails_llm,
+            temperature=self.temperature,
         )
         self.safe = safety_response["answer"]["safe"] == "True"
         if self.safe is False:
@@ -58,16 +93,28 @@ class LLMGuardRails:
         return safety_response
 
     async def check_relevance(
-        self, query: str, language: str, script: str, table_description: str
+        self,
+        query: str,
+        language: str,
+        script: str,
+        table_description: str,
+        context: str = "",
     ) -> dict:
         """
         Handle the relevance of the query.
         """
         prompt = create_relevance_prompt(
-            query, language, script, table_description=table_description
+            query,
+            language,
+            script,
+            table_description=table_description,
+            context=context,
         )
         relevance_response = await _ask_llm_json(
-            prompt, self.system_message, self.guardrails_llm, self.temperature
+            prompt=prompt,
+            system_message=self.system_message,
+            llm=self.guardrails_llm,
+            temperature=self.temperature,
         )
         self.relevant = relevance_response["answer"]["relevant"] == "True"
         if self.relevant is False:
