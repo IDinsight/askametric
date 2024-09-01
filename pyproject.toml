@@ -6,7 +6,7 @@ authors = ["ziakhan04 <khanziaaziz@gmail.com>", "poornimaramesh <poornimaramesh1
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.10.13"
 aiocache = "^0.12.2"
 litellm = "^1.41.23"
 sqlalchemy = "^2.0.31"
