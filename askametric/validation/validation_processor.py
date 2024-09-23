@@ -33,7 +33,8 @@ class QueryEvaluator:
             system_message=self.grading_bot_prompt,
             prompt=relevancy_prompt,
             llm=self.llm,
-        )["answer"]
+        )
+        relevancy_evaluation = relevancy_evaluation["answer"]
 
         return {f"relevancy_{k}": val for k, val in relevancy_evaluation.items()}
 
@@ -55,15 +56,16 @@ class QueryEvaluator:
         )
         accuracy_evaluation = await _ask_llm_json(
             system_message=self.grading_bot_prompt, prompt=accuracy_prompt, llm=self.llm
-        )["answer"]
+        )
+        accuracy_evaluation = accuracy_evaluation["answer"]
 
         # Do other checks here
         accuracy_evaluation["is_correct_language"] = 0.0
         accuracy_evaluation["is_correct_script"] = 0.0
         if correct_script == llm_ided_script:
-            accuracy_evaluation["is_same_script"] = 1.0
+            accuracy_evaluation["is_correct_script"] = 1.0
         if correct_language == llm_ided_language:
-            accuracy_evaluation["is_same_language"] = 1.0
+            accuracy_evaluation["is_correct_language"] = 1.0
 
         # Check if the best tables and columns are correct
         accuracy_evaluation["has_best_tables"] = 0.0
@@ -96,25 +98,27 @@ class QueryEvaluator:
             system_message=self.grading_bot_prompt,
             prompt=instructions_prompt,
             llm=self.llm,
-        )["answer"]
+        )
+        instructions_evaluation = instructions_evaluation["answer"]
         return {f"instructions_{k}": val for k, val in instructions_evaluation.items()}
 
     async def test_guardrails(self, guardrails_status: dict):
-        if all([val == "Passed" for val in guardrails_status.values()]):
+        if all([val._value_ == "Passed" for val in guardrails_status.values()]):
             return {
                 "guardrails_score": 0.0,
                 "guardrails_reason": "All guardrails passed when they should not have",
             }
         else:
             not_passed = [
-                val
+                val._value_
                 for val in guardrails_status.values()
                 if val not in ["Passed", "Did not run"]
             ]
-        return {
-            "guardrails_score": 1.0,
-            "guardrails_reason": f"The following guardrails did not pass: {not_passed}",
-        }
+            return {
+                "guardrails_score": 1.0,
+                "guardrails_reason": f"The following guardrails did not pass: /\
+                {not_passed}",
+            }
 
     async def get_eval_results(
         self, groundtruth: dict, response_to_evaluate: dict
