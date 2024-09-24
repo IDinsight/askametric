@@ -69,3 +69,23 @@ def get_instructions_prompt(question: str, instructions: str, llm_response: str)
     Given the "Question", does the "Answer" follow the "Instructions"?
     """
     return prompt
+
+
+def get_consistency_prompt(question: str, llm_response: str):
+    """
+    Create prompt to check consistency of generated response.
+    """
+    prompt = f"""
+    Here is the message to evaluate
+    ---- Message Begins----------------
+    Question: {question}
+    Answer: {llm_response}
+    ---- Message Ends----------------
+
+    ---- Evaluation Criteria -----
+    Is the format of "Answer" consistent with what the "Question" asks?
+    For e.g. if the "Question" asks to list something, "Answer" MUST contain
+    bullet points or a number list. If "Question" asks for ranking by an indicator,
+    "Answer" MUST contain a ranked list.
+    """
+    return prompt
