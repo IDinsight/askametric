@@ -1,5 +1,7 @@
 # Set up imports
 from typing import Any, Callable
+import pandas as pd
+import numpy as np
 from askametric.utils import _ask_llm_json
 from .validation_prompts import (
     grading_bot_prompt,
@@ -160,8 +162,8 @@ class QueryEvaluator:
                 "guardrails_reason": f"These guardrails did not pass: {not_passed}",
             }
 
-    async def get_eval_results(
-        self, groundtruth: dict, response_to_evaluate: dict, **kwargs: Any
+    async def evaluate(
+        self, groundtruth: dict, response_to_evaluate: dict
     ) -> dict[str, Any]:
         """
         Get validation results for input
@@ -184,3 +186,38 @@ class QueryEvaluator:
                 continue
 
         return results
+
+    async def get_eval_results(
+        self,
+        groundtruth_data: list[dict],
+        responses_to_evaluate: list[dict],
+        instructions: str,
+    ):
+        """
+        Get evaluation results for a list of responses
+
+        Args:
+            groundtruth_data: the dictionary of groundtruth data
+            responses_to_evaluate: the dictionary of responses to evaluate
+            instructions: the instructions to evaluate against
+        """
+        eval_results = []
+        for i, val_question in enumerate(groundtruth_data):
+            val_question["instructions"] = instructions
+
+            llm_response = responses_to_evaluate[i]
+            result = await self.evaluate(val_question, llm_response)
+            eval_results.append(result)
+        return pd.DataFrame(eval_results)
+
+    def summarize_results(self, eval_results: pd.DataFrame):
+        """
+        Summarize numerical evaluation results in percentages
+
+        Args:
+            eval_results: the evaluation results
+        """
+        return (
+            eval_results.select_dtypes(include=[np.number]).apply(np.nanmean, axis=0)
+            * 100
+        )

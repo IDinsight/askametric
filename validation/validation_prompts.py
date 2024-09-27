@@ -46,9 +46,8 @@ def get_accuracy_prompt(correct_answer: str, llm_response: str):
     ----Message Ends----------------
 
     ---- Evaluation Criteria ----
-    Is the "Answer" similar in meaning to "Correct Answer"?
-    Remember, the "Answer" and "Correct Answer" ONLY NEED TO BE
-    SIMILAR in general meaning.
+    Does the "Answer" match "Correct Answer" as CLOSELY as possible?
+    Remember, the "Answer" and "Correct Answer" MUST have the same content.
     """
     return prompt
 
@@ -67,6 +66,7 @@ def get_instructions_prompt(question: str, instructions: str, llm_response: str)
 
     ---- Evaluation Criteria -----
     Given the "Question", does the "Answer" follow the "Instructions"?
+    Remember, the "Answer" MUST follow EVERY SINGLE directive in "Instructions".
     """
     return prompt
 

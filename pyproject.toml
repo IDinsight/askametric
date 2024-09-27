@@ -5,6 +5,9 @@ description = "Text-2-SQL python package to answer questions using information f
 authors = ["ziakhan04 <khanziaaziz@gmail.com>", "poornimaramesh <poornimaramesh1995@gmail.com>", "edodge <edodge11@gmail.com>"]
 readme = "README.md"
 
+[tool.poetry.extras]
+validation = ["validation"]
+
 [tool.poetry.dependencies]
 python = "^3.10.13"
 aiocache = "^0.12.2"
@@ -15,6 +18,7 @@ aiosqlite = "^0.20.0"
 greenlet = "^3.0.3"
 pymysql = "^1.1.1"
 aiomysql = "^0.2.0"
+openpyxl = "^3.1.5"
 
 
 [tool.poetry.group.dev.dependencies]
