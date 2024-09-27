@@ -61,6 +61,7 @@ llm_call_logger = setup_logger("LLM_call")
 async def _ask_llm_json(
     prompt: str,
     system_message: str,
+    context_message: str = "",
     llm: str = "gpt-4o",
     temperature: float = 0.1,
 ) -> dict:
@@ -71,6 +72,9 @@ async def _ask_llm_json(
     Args:
         prompt (str): The prompt to ask the LLM model
         system_message (str): The system message to ask the LLM model
+        context_message (str): The context message to send to the LLM model
+        llm (str): The LLM model to use
+        temperature (float): The temperature to use for the LLM model
     """
     llm_call_logger.debug(f"LLM input: 'model': {llm}, 'messages': {prompt}")
     response = await acompletion(
@@ -78,6 +82,7 @@ async def _ask_llm_json(
         temperature=temperature,
         messages=[
             {"content": system_message, "role": "system"},
+            {"content": context_message, "role": "assistant"},
             {"content": prompt, "role": "user"},
         ],
         response_format={"type": "json_object"},
