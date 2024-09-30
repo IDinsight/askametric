@@ -150,7 +150,7 @@ class QueryEvaluator:
     async def test_guardrails(
         self, guardrails_status: dict, **kwargs: Any
     ) -> dict[str, Any]:
-        if all([val._value_ == "Passed" for val in guardrails_status.values()]):
+        if all([val == "Passed" for val in guardrails_status.values()]):
             return {
                 "guardrails_score": 0.0,
                 "guardrails_reason": "All guardrails passed when they should not have",
@@ -159,7 +159,7 @@ class QueryEvaluator:
             not_passed = [
                 key
                 for key, val in guardrails_status.items()
-                if val._value_ not in ["Passed", "Did not run"]
+                if val not in ["Passed", "Did not run"]
             ]
             return {
                 "guardrails_score": 1.0,
