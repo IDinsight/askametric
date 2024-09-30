@@ -18,14 +18,15 @@ class QueryEvaluator:
     a specific database
     """
 
-    def __init__(self, llm: str) -> None:
+    def __init__(self, llm: str, temperature: float = 0.0) -> None:
         """
         Init
 
-        auth_token: the authentication token for the LLM
         llm: the LLM to be used
+        temperature: the temperature to use. Default is 0.0
         """
         self.llm = llm
+        self.temperature = temperature
         self.grading_bot_prompt = grading_bot_prompt()
         self.allowed_tests: dict[str, Callable] = {
             "Relevancy": self.test_relevancy,
@@ -46,6 +47,7 @@ class QueryEvaluator:
             system_message=self.grading_bot_prompt,
             prompt=relevancy_prompt,
             llm=self.llm,
+            temperature=self.temperature,
         )
         relevancy_evaluation = relevancy_evaluation["answer"]
 
@@ -122,6 +124,7 @@ class QueryEvaluator:
             system_message=self.grading_bot_prompt,
             prompt=instructions_prompt,
             llm=self.llm,
+            temperature=self.temperature,
         )
         instructions_evaluation = instructions_evaluation["answer"]
         return {f"instructions_{k}": val for k, val in instructions_evaluation.items()}
@@ -139,6 +142,7 @@ class QueryEvaluator:
             system_message=self.grading_bot_prompt,
             prompt=consistency_prompt,
             llm=self.llm,
+            temperature=self.temperature,
         )
         consistency_evaluation = consistency_evaluation["answer"]
         return {f"consistency_{k}": val for k, val in consistency_evaluation.items()}
