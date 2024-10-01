@@ -64,4 +64,8 @@ jupyter notebook
 
 And open the `demo.ipynb` file and run the cells to see the code in action!
 
+### 5. Evaluating the pipeline
+
+Open and run the `validation.ipynb` cells to see how to evaluate the responses from the pipeline for metrics like Relevancy, Consistenty, Accuracy, etc.
+
 _Note: This repository is a work-in-progress. We are continuously improving the code and documentation to help you use and further build on this code easily._
