@@ -46,9 +46,9 @@ def get_accuracy_prompt(correct_answer: str, llm_response: str):
     ----Message Ends----------------
 
     ---- Evaluation Criteria ----
-    Does the "Answer" match "Correct Answer" as CLOSELY as possible?
-    Remember, the "Answer" and "Correct Answer" MUST have the same
-    content and be similar in semantic meaning. If "Answer" has additional
+    Does the "Answer" match "Correct Answer" CLOSELY?
+    Remember, the "Answer" and "Correct Answer" MUST have similar
+    content and semantic meaning. If "Answer" has additional
     information, that is ok as long as it does NOT alter the interpretation or
     meaning compared to "Correct Answer".
     """
