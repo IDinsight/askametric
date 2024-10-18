@@ -74,15 +74,15 @@ def create_relevance_prompt(
     return prompt
 
 
-def create_self_consistency_prompt(query_text: str, language: str, script: str) -> str:
+def create_self_consistency_prompt(query_text: str) -> str:
     """
     Create prompt to check if the query is self-consistent.
     """
 
     prompt = f"""
     I need to ensure that the user query is self-consistent.
-    This means that the query should be understandable and unambiguous in the
-    context the chat history -- remember only the semantic meaning of the query matters.
+    This means that the query should be understandable and unambiguous.
+    Remember only the semantic meaning of the query matters.
 
     Here is the user query:
     <<<{query_text}>>>
@@ -94,8 +94,5 @@ def create_self_consistency_prompt(query_text: str, language: str, script: str) 
 
     If "False", provide another key "response" with a brief
     message explaining why the query is not self-consistent.
-    I will share this response directly with the user. So,
-    make sure the "response" is in {language} and the script
-    is {script}.
     """
     return prompt

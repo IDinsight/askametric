@@ -1,5 +1,4 @@
 from enum import Enum
-import json
 from ...utils import _ask_llm_json
 from .guardrails_prompts import (
     create_relevance_prompt,
@@ -102,13 +101,9 @@ class MultiTurnLLMGuardrails(LLMGuardRails):
         """
         Handle the self-consistency of the query.
         """
-        prompt = create_self_consistency_prompt(query, language, script)
+        prompt = create_self_consistency_prompt(query)
         consistency_response = await _ask_llm_json(
-            prompt,
-            self.system_message,
-            self.guardrails_llm,
-            self.temperature,
-            context=json.dumps(chat_history),
+            prompt, self.system_message, self.guardrails_llm, self.temperature
         )
         self.consistent = consistency_response["answer"]["consistent"] == "True"
         if self.consistent is False:

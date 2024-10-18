@@ -63,7 +63,6 @@ async def _ask_llm_json(
     system_message: str,
     llm: str = "gpt-4o",
     temperature: float = 0.1,
-    context: str = "",
 ) -> dict:
     """
     A generic function to ask the LLM model a question and return
@@ -79,7 +78,6 @@ async def _ask_llm_json(
         temperature=temperature,
         messages=[
             {"content": system_message, "role": "system"},
-            {"content": context, "role": "assistant"},
             {"content": prompt, "role": "user"},
         ],
         response_format={"type": "json_object"},

@@ -299,7 +299,7 @@ class MultiTurnQueryProcessor:
         """
         The function asks the LLM model to reframe the user query
         """
-        prompt = reframe_query_prompt(query, chat_history=self.chat_history)
+        prompt = reframe_query_prompt(query, chat_history=self.chat_history[::-1])
         reframed_query_llm_response = await _ask_llm_json(
             prompt, self.system_message, llm=self.llm, temperature=self.temperature
         )
@@ -339,12 +339,10 @@ class MultiTurnQueryProcessor:
         )
 
         # Get query language
-        print("Getting query language")
         await query_processor._get_query_language_from_llm()
         await query_processor._english_translation()
 
         # Check query safety
-        print("Getting query safety")
         await self.guardrails.check_safety(
             query_processor.eng_translation["query_text"],
             query_processor.query_language,
@@ -364,11 +362,11 @@ class MultiTurnQueryProcessor:
             return query_processor
 
         # Check query consistency:
-        print("Getting query consistency")
         await self.guardrails.check_consistency(
             query_processor.eng_translation["query_text"],
             query_processor.query_language,
             query_processor.query_script,
+            self.chat_history[::-1],
         )
 
         if self.guardrails.consistent is False:
@@ -376,24 +374,17 @@ class MultiTurnQueryProcessor:
             query_processor.guardrails.guardrails_status = (
                 self.guardrails.guardrails_status
             )
-            query_processor.final_answer = self.guardrails.consistency_response
-            self._update_chat_history(
-                query_processor.eng_translation["query_text"],
-                query_processor.final_answer,
+            self.consistency_response = self.guardrails.consistency_response
+
+            # Reframe and check relevance
+            reframed_query = await self._get_reframed_query(
+                query_processor.eng_translation["query_text"]
             )
-            return query_processor
+            query_processor.eng_translation[
+                "original_query"
+            ] = query_processor.eng_translation["query_text"]
+            query_processor.eng_translation["query_text"] = reframed_query
 
-        # Reframe and check relevance
-        print("Reframing query")
-        reframed_query = await self._get_reframed_query(
-            query_processor.eng_translation["query_text"]
-        )
-        query_processor.eng_translation[
-            "original_query"
-        ] = query_processor.eng_translation["query_text"]
-        query_processor.eng_translation["query_text"] = reframed_query
-
-        print("Getting query relevance")
         await self.guardrails.check_relevance(
             query_processor.eng_translation["query_text"],
             query_processor.query_language,
@@ -415,7 +406,6 @@ class MultiTurnQueryProcessor:
             return query_processor
 
         # Step through rest of pipeline
-        print("Stepping through pipeline")
         await query_processor._get_best_tables_from_llm()
         await query_processor._get_best_columns_from_llm()
         await query_processor._get_sql_query_from_llm()

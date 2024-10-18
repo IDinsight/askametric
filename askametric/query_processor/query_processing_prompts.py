@@ -80,8 +80,10 @@ def reframe_query_prompt(query_text: str, chat_history: list) -> str:
 
     ===== Reframe question =====
     Is the question clear and unambiguous?
-    If not, reframe the question using the context from the chat history.
     If yes, you can leave the question as is.
+    If not, reframe the question using information from the chat history. Remember
+    to keep the question as close to the original as possible, and pay more attention
+    to the first questions in the chat history.
 
     ==== Response format ====
     python parsable json with key "reframed_query".
