@@ -68,7 +68,7 @@ def english_translation_prompt(
     return system_message, prompt
 
 
-def reframe_query_prompt(query_text: str, chat_history: list) -> str:
+def create_reframe_query_prompt(query_text: str, chat_history: list) -> str:
     """Create prompt to reframe the query based on chat history."""
     prompt = f"""
     ===== Question =====
