@@ -79,10 +79,10 @@ async def _ask_llm_json(
         temperature=temperature,
         messages=[
             {"content": system_message, "role": "system"},
+            {"content": context, "role": "assistant"},
             {"content": prompt, "role": "user"},
         ],
         response_format={"type": "json_object"},
-        context=context,
     )
 
     cost = completion_cost(response)

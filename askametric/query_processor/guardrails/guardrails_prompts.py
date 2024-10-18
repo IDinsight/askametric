@@ -82,7 +82,7 @@ def create_self_consistency_prompt(query_text: str, language: str, script: str) 
     prompt = f"""
     I need to ensure that the user query is self-consistent.
     This means that the query should be understandable and unambiguous in the
-    context of the system prompt, and the chat history.
+    context the chat history -- remember only the semantic meaning of the query matters.
 
     Here is the user query:
     <<<{query_text}>>>
