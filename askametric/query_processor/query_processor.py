@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..utils import _ask_llm_json
 from ..utils import track_time
-from .guardrails.guardrails import LLMGuardRails
+from .guardrails.guardrails import LLMGuardRails, MultiTurnLLMGuardrails
 from .query_processing_prompts import (
     create_best_columns_prompt,
     create_best_tables_prompt,
@@ -10,6 +10,7 @@ from .query_processing_prompts import (
     create_sql_generating_prompt,
     english_translation_prompt,
     get_query_language_prompt,
+    reframe_query_prompt,
 )
 from .tools import SQLTools, get_tools
 
@@ -237,3 +238,188 @@ class LLMQueryProcessor:
         await self._get_best_columns_from_llm()
         await self._get_sql_query_from_llm()
         await self._get_final_answer_from_llm()
+
+
+class MultiTurnQueryProcessor:
+    """
+    Processes queries while maintaining a dialogue with the user.
+    """
+
+    def __init__(
+        self,
+        asession: AsyncSession,
+        metric_db_id: str,
+        db_type: str,
+        llm: str,
+        guardrails_llm: str,
+        sys_message: str,
+        db_description: str,
+        column_description: str,
+        indicator_vars: list,
+        num_common_values: int,
+        chat_memory_length: int,
+    ) -> None:
+        """
+        Initialize the MultiTurnQueryProcessor class.
+
+        Args:
+            asession: The SQLAlchemy AsyncSession object.
+            metric_db_id: The database id to query.
+            llm: The LLM model to use.
+            guardrails_llm: The guardrails LLM model to use.
+            sys_message: The system message to use.
+            db_description: The description of the database.
+            column_description: The description of the columns.
+            indicator_vars: The indicator variables.
+            num_common_values: The number of common values to get.
+            chat_memory_length: The number of previous interactions
+                to hold in memory.
+        """
+        self.asession = asession
+        self.metric_db_id = metric_db_id
+        self.db_type = db_type
+        self.tools: SQLTools = get_tools()
+        self.temperature = 0.1
+        self.llm = llm
+        self.guardrails_llm = guardrails_llm
+        self.system_message = sys_message
+        self.table_description = db_description
+        self.column_description = column_description
+        self.indicator_vars = indicator_vars
+        self.num_common_values = num_common_values
+
+        self.guardrails: MultiTurnLLMGuardrails = MultiTurnLLMGuardrails(
+            guardrails_llm, self.system_message
+        )
+        self.chat_history: list[dict] = []
+        self.chat_memory_length = chat_memory_length
+
+    @track_time(create_class_attr="timings")
+    async def _get_reframed_query(self, query: dict) -> str:
+        """
+        The function asks the LLM model to reframe the user query
+        """
+        prompt = reframe_query_prompt(
+            query["query_text"], chat_history=self.chat_history
+        )
+        reframed_query_llm_response = await _ask_llm_json(
+            prompt, self.system_message, llm=self.llm, temperature=self.temperature
+        )
+
+        return reframed_query_llm_response["answer"]["reframed_query"]
+
+    def _update_chat_history(self, query: str, response: str) -> None:
+        """
+        The function updates the chat history with the user query
+        and system response.
+        """
+        if len(self.chat_history) >= self.chat_memory_length:
+            self.chat_history.pop(0)
+        self.chat_history.append({"user": query, "system": response})
+
+    @track_time(create_class_attr="timings")
+    async def process_query(self, query: dict) -> LLMQueryProcessor:
+        """
+        The function processes the user query and returns the final answer.
+
+        Args:
+            query: The user query and query metadata.
+        """
+
+        query_processor = LLMQueryProcessor(
+            query,
+            self.asession,
+            self.metric_db_id,
+            self.db_type,
+            self.llm,
+            self.guardrails_llm,
+            self.system_message,
+            self.table_description,
+            self.column_description,
+            self.indicator_vars,
+            self.num_common_values,
+        )
+
+        # Get query language
+        await query_processor._get_query_language_from_llm()
+        await query_processor._english_translation()
+
+        # Check query safety
+        await self.guardrails.check_safety(
+            query_processor.eng_translation["query_text"],
+            query_processor.query_language,
+            query_processor.query_script,
+        )
+
+        if self.guardrails.safe is False:
+            query_processor.guardrails.cost = self.guardrails.cost
+            query_processor.guardrails.guardrails_status = (
+                self.guardrails.guardrails_status
+            )
+            query_processor.final_answer = self.guardrails.safety_response
+            self._update_chat_history(
+                query_processor.eng_translation["query_text"],
+                query_processor.final_answer,
+            )
+            return query_processor
+
+        # Check query consistency:
+        await self.guardrails.check_consistency(
+            query_processor.eng_translation["query_text"],
+            query_processor.query_language,
+            query_processor.query_script,
+        )
+
+        if self.guardrails.consistent is False:
+            query_processor.guardrails.cost = self.guardrails.cost
+            query_processor.guardrails.guardrails_status = (
+                self.guardrails.guardrails_status
+            )
+            query_processor.final_answer = self.guardrails.consistency_response
+            self._update_chat_history(
+                query_processor.eng_translation["query_text"],
+                query_processor.final_answer,
+            )
+            return query_processor
+
+        # Reframe and check relevance
+        reframed_query = await self._get_reframed_query(
+            query_processor.eng_translation["query_text"]
+        )
+        query_processor.eng_translation[
+            "original_query"
+        ] = query_processor.eng_translation["query_text"]
+        query_processor.eng_translation["query_text"] = reframed_query
+
+        await self.guardrails.check_relevance(
+            query_processor.eng_translation["query_text"],
+            query_processor.query_language,
+            query_processor.query_script,
+            query_processor.table_description,
+        )
+
+        if self.guardrails.relevant is False:
+            query_processor.guardrails.cost = self.guardrails.cost
+            query_processor.guardrails.guardrails_status = (
+                self.guardrails.guardrails_status
+            )
+            query_processor.final_answer = self.guardrails.relevance_response
+
+            self._update_chat_history(
+                query_processor.eng_translation["query_text"],
+                query_processor.final_answer,
+            )
+            return query_processor
+
+        # Step through rest of pipeline
+        query_processor._get_best_tables_from_llm()
+        query_processor._get_best_columns_from_llm()
+        query_processor._get_sql_query_from_llm()
+        query_processor._get_final_answer_from_llm()
+
+        # Update chat history
+        self._update_chat_history(
+            query_processor.eng_translation["query_text"], query_processor.final_answer
+        )
+
+        return query_processor
