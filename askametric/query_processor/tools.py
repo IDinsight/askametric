@@ -1,6 +1,7 @@
 from collections import defaultdict
 from functools import wraps
 from typing import Any, Callable, Dict, List
+import logging
 
 from aiocache import cached
 from cachetools import TTLCache
@@ -75,6 +76,7 @@ class SQLTools:
                     existing_schemas_and_tables[schema].append(table_name)
 
             for schema, tables in existing_schemas_and_tables.items():
+                logging.info(f"Reflecting schema: {schema}, tables: {tables}")
                 metadata.reflect(bind=engine, schema=schema, only=tables, views=True)
 
             return existing_schemas_and_tables
