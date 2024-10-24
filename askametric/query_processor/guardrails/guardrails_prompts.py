@@ -72,3 +72,27 @@ def create_relevance_prompt(
     """
 
     return prompt
+
+
+def create_self_consistency_prompt(query_text: str) -> str:
+    """
+    Create prompt to check if the query is self-consistent.
+    """
+
+    prompt = f"""
+    I need to ensure that the user query is self-consistent.
+    This means that the query should be understandable and unambiguous.
+    Remember only the semantic meaning of the query matters.
+
+    Here is the user query:
+    <<<{query_text}>>>
+
+    Is the user query self-consistent?
+    Reply in a python parsable json with key
+    "consistent" equal to "True" (string) if the query is self-consistent,
+    else "False" (string).
+
+    If "False", provide another key "response" with a brief
+    message explaining why the query is not self-consistent.
+    """
+    return prompt
