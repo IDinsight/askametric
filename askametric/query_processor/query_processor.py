@@ -299,6 +299,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         self.reframe_query_prompt = ""
         self.consistency_prompt = ""
         self.chat_history = chat_history
+        self.translated_answer = ""
 
     @track_time(create_class_attr="timings")
     async def _get_reframed_query(self) -> None:
@@ -314,6 +315,21 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         )
 
         self.reframed_query = reframed_query_llm_response["answer"]["reframed_query"]
+
+    async def _translate_final_answer(self) -> None:
+        """
+        The function translates the final answer to the user's query.
+        """
+        system_message, prompt = english_translation_prompt(
+            query_model={"query_text": self.final_answer, "query_metadata": ""},
+            query_language="",
+            query_script="",
+        )
+
+        eng_translation_llm_response = await _ask_llm_json(
+            prompt, system_message, llm=self.llm, temperature=self.temperature
+        )
+        self.translated_answer = eng_translation_llm_response["answer"]["query_text"]
 
     @track_time(create_class_attr="timings")
     async def process_query(self) -> None:
@@ -349,7 +365,6 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
 
         if self.guardrails.consistent is False:
             # Reframe and check relevance
-            await self._get_reframed_query()
             self.eng_translation["original_query"] = self.eng_translation["query_text"]
             self.eng_translation["query_text"] = self.reframed_query
 
@@ -369,3 +384,4 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         await self._get_best_columns_from_llm()
         await self._get_sql_query_from_llm()
         await self._get_final_answer_from_llm()
+        await self._translate_final_answer()
