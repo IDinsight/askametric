@@ -68,8 +68,12 @@ def english_translation_prompt(
     return system_message, prompt
 
 
-def create_reframe_query_prompt(query_text: str, chat_history: list) -> str:
+def create_reframe_query_prompt(query_text: str, chat_history: list) -> tuple[str, str]:
     """Create prompt to reframe the query based on chat history."""
+    sys_message = "You are a highly-skilled linguist.\
+    Your job is to look at the chat history and use it to infer context accurately\
+    to understand what information the user is asking for with the current question."
+
     prompt = f"""
     ===== Question =====
     <<< {query_text} >>>
@@ -81,14 +85,17 @@ def create_reframe_query_prompt(query_text: str, chat_history: list) -> str:
     ===== Reframe question =====
     Is the question clear and unambiguous?
     If yes, you can leave the question as is.
-    If not, reframe the question using information from the chat history. Remember
-    to keep the question as close to the original as possible, and pay more attention
-    to the first questions in the chat history.
+    If not, reframe the question using information from the chat history.
+    REMEMBER:
+    - Keep the question as close to the original as possible, and
+    - Pay more attention to the first question in the chat history.
+    - PAY ATTENTION to words such as "these", "here", "it", etc. in the Question --
+    they refer to places or people in the chat history.
 
     ==== Response format ====
     python parsable json with key "reframed_query".
     """
-    return prompt
+    return sys_message, prompt
 
 
 def create_best_tables_prompt(query_model: dict, table_description: str) -> str:

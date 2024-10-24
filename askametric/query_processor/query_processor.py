@@ -306,12 +306,12 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         """
         The function asks the LLM model to reframe the user query
         """
-        prompt = create_reframe_query_prompt(
+        sys_message, prompt = create_reframe_query_prompt(
             self.eng_translation["query_text"], chat_history=self.chat_history[::-1]
         )
         self.reframe_query_prompt = prompt
         reframed_query_llm_response = await _ask_llm_json(
-            prompt, self.system_message, llm=self.llm, temperature=self.temperature
+            prompt, sys_message, llm=self.llm, temperature=self.temperature
         )
 
         self.reframed_query = reframed_query_llm_response["answer"]["reframed_query"]
@@ -353,6 +353,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
 
         if self.guardrails.safe is False:
             self.final_answer = self.guardrails.safety_response
+            await self._translate_final_answer()
             return None
 
         # Check query consistency:
@@ -365,6 +366,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
 
         if self.guardrails.consistent is False:
             # Reframe and check relevance
+            await self._get_reframed_query()
             self.eng_translation["original_query"] = self.eng_translation["query_text"]
             self.eng_translation["query_text"] = self.reframed_query
 
@@ -377,6 +379,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
 
         if self.guardrails.relevant is False:
             self.final_answer = self.guardrails.relevance_response
+            await self._translate_final_answer()
             return None
 
         # Step through rest of pipeline
