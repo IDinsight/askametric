@@ -12,7 +12,7 @@ from .query_processing_prompts import (
     get_query_language_prompt,
     create_reframe_query_prompt,
 )
-from .tools import SQLTools, get_tools
+from .tools import SQLTools, get_tools, get_tools_multiturn
 
 
 class LLMQueryProcessor:
@@ -291,7 +291,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             indicator_vars,
             num_common_values,
         )
-
+        self.tools: SQLTools = get_tools_multiturn()
         self.guardrails: MultiTurnLLMGuardrails = MultiTurnLLMGuardrails(
             guardrails_llm, self.system_message
         )
