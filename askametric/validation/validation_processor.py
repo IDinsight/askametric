@@ -179,6 +179,8 @@ class QueryEvaluator:
         tests_to_run = groundtruth["tests_to_run"]
         results = {}
 
+        results.update(groundtruth)
+        results.update(response_to_evaluate)
         for test in tests_to_run:
             try:
                 test_result = await self.allowed_tests[test](
