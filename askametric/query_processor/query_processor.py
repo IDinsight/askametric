@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..utils import _ask_llm_json
 from ..utils import track_time
-from .guardrails.guardrails import LLMGuardRails
+from .guardrails.guardrails import LLMGuardRails, MultiTurnLLMGuardrails
 from .query_processing_prompts import (
     create_best_columns_prompt,
     create_best_tables_prompt,
@@ -10,8 +10,9 @@ from .query_processing_prompts import (
     create_sql_generating_prompt,
     english_translation_prompt,
     get_query_language_prompt,
+    create_reframe_query_prompt,
 )
-from .tools import SQLTools, get_tools
+from .tools import SQLTools, get_tools, get_tools_multiturn
 
 
 class LLMQueryProcessor:
@@ -237,3 +238,153 @@ class LLMQueryProcessor:
         await self._get_best_columns_from_llm()
         await self._get_sql_query_from_llm()
         await self._get_final_answer_from_llm()
+
+
+class MultiTurnQueryProcessor(LLMQueryProcessor):
+    """
+    Processes queries while maintaining a dialogue with the user.
+    """
+
+    def __init__(
+        self,
+        query: dict,
+        asession: AsyncSession,
+        metric_db_id: str,
+        db_type: str,
+        llm: str,
+        guardrails_llm: str,
+        sys_message: str,
+        db_description: str,
+        column_description: str,
+        indicator_vars: list,
+        num_common_values: int,
+        chat_history: list[dict] = [],
+    ) -> None:
+        """
+        Initialize the MultiTurnQueryProcessor class.
+
+        Args:
+            query: The user query and query metadata.
+            asession: The SQLAlchemy AsyncSession object.
+            metric_db_id: The database id to query.
+            llm: The LLM model to use.
+            guardrails_llm: The guardrails LLM model to use.
+            sys_message: The system message to use.
+            db_description: The description of the database.
+            column_description: The description of the columns.
+            indicator_vars: The indicator variables.
+            num_common_values: The number of common values to get.
+            chat_memory_length: The number of previous interactions
+                to hold in memory.
+            chat_history: The chat history.
+        """
+        super().__init__(
+            query,
+            asession,
+            metric_db_id,
+            db_type,
+            llm,
+            guardrails_llm,
+            sys_message,
+            db_description,
+            column_description,
+            indicator_vars,
+            num_common_values,
+        )
+        self.tools: SQLTools = get_tools_multiturn()
+        self.guardrails: MultiTurnLLMGuardrails = MultiTurnLLMGuardrails(
+            guardrails_llm, self.system_message
+        )
+        self.reframed_query = ""
+        self.reframe_query_prompt = ""
+        self.consistency_prompt = ""
+        self.chat_history = chat_history
+        self.translated_answer = ""
+
+    @track_time(create_class_attr="timings")
+    async def _get_reframed_query(self) -> None:
+        """
+        The function asks the LLM model to reframe the user query
+        """
+        sys_message, prompt = create_reframe_query_prompt(
+            self.eng_translation["query_text"], chat_history=self.chat_history[::-1]
+        )
+        self.reframe_query_prompt = prompt
+        reframed_query_llm_response = await _ask_llm_json(
+            prompt, sys_message, llm=self.llm, temperature=self.temperature
+        )
+
+        self.reframed_query = reframed_query_llm_response["answer"]["reframed_query"]
+
+    async def _translate_final_answer(self) -> None:
+        """
+        The function translates the final answer to the user's query.
+        """
+        system_message, prompt = english_translation_prompt(
+            query_model={"query_text": self.final_answer, "query_metadata": ""},
+            query_language="",
+            query_script="",
+        )
+
+        eng_translation_llm_response = await _ask_llm_json(
+            prompt, system_message, llm=self.llm, temperature=self.temperature
+        )
+        self.translated_answer = eng_translation_llm_response["answer"]["query_text"]
+
+    @track_time(create_class_attr="timings")
+    async def process_query(self) -> None:
+        """
+        The function processes the user query and returns the final answer.
+
+        Args:
+            query: The user query and query metadata.
+        """
+
+        # Get query language
+        await self._get_query_language_from_llm()
+        await self._english_translation()
+
+        # Check query safety
+        await self.guardrails.check_safety(
+            self.eng_translation["query_text"],
+            self.query_language,
+            self.query_script,
+        )
+
+        if self.guardrails.safe is False:
+            self.final_answer = self.guardrails.safety_response
+            await self._translate_final_answer()
+            return None
+
+        # Check query consistency:
+        await self.guardrails.check_consistency(
+            self.eng_translation["query_text"],
+            self.query_language,
+            self.query_script,
+            self.chat_history[::-1],
+        )
+
+        if self.guardrails.consistent is False:
+            # Reframe and check relevance
+            await self._get_reframed_query()
+            self.eng_translation["original_query"] = self.eng_translation["query_text"]
+            self.eng_translation["query_text"] = self.reframed_query
+
+        await self.guardrails.check_relevance(
+            self.eng_translation["query_text"],
+            self.query_language,
+            self.query_script,
+            self.table_description,
+        )
+
+        if self.guardrails.relevant is False:
+            self.final_answer = self.guardrails.relevance_response
+            await self._translate_final_answer()
+            return None
+
+        # Step through rest of pipeline
+        await self._get_best_tables_from_llm()
+        await self._get_best_columns_from_llm()
+        await self._get_sql_query_from_llm()
+        await self._get_final_answer_from_llm()
+        await self._translate_final_answer()

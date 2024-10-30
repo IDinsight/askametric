@@ -10,6 +10,7 @@ from sqlalchemy.schema import CreateTable
 from ..utils import track_time
 
 _tools_instance = None
+_tools_instance_multiturn = None
 
 
 class SQLTools:
@@ -202,3 +203,11 @@ def get_tools() -> SQLTools:
     if _tools_instance is None:
         _tools_instance = SQLTools()
     return _tools_instance
+
+
+def get_tools_multiturn() -> SQLTools:
+    """Return the SQLTools instance."""
+    global _tools_instance_multiturn
+    if _tools_instance_multiturn is None:
+        _tools_instance_multiturn = SQLTools()
+    return _tools_instance_multiturn
