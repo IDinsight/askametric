@@ -1,3 +1,4 @@
+from collections import defaultdict
 from functools import wraps
 from typing import Any, Callable, Dict, List
 
@@ -63,17 +64,27 @@ class SQLTools:
             """Reflect the tables."""
             engine = asession.get_bind()
             inspector = inspect(engine)
-            existing_tables = [
-                table for table in table_list if inspector.has_table(table)
-            ]
-            metadata.reflect(bind=engine, only=existing_tables, views=True)
-            return existing_tables
+            existing_schemas_and_tables = defaultdict(list)
+            for table_name in table_list:
+                result = table_name.split(".")
+                if len(result) == 2:
+                    schema, table = result
+                else:
+                    schema = None
+                    table = result[0]
+                if inspector.has_table(table, schema=schema):
+                    existing_schemas_and_tables[schema].append(table_name)
+
+            for schema, tables in existing_schemas_and_tables.items():
+                metadata.reflect(bind=engine, schema=schema, only=tables, views=True)
+
+            return existing_schemas_and_tables
 
         # Execute the reflection
-        existing_tables = await asession.run_sync(_do_reflect)
+        existing_schemas_and_tables = await asession.run_sync(_do_reflect)
 
-        for table_name in existing_tables:
-            table = metadata.tables.get(table_name)
+        for schema_name, table_name in existing_schemas_and_tables.items():
+            table = metadata.tables.get(f"{schema_name + '.' if schema_name else ''}{table_name}")
             if table is not None:
                 ddl_statement = str(
                     CreateTable(table).compile(bind=asession.get_bind())
