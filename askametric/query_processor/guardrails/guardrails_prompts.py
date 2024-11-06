@@ -48,8 +48,16 @@ def create_relevance_prompt(
     """
 
     prompt = f"""
-    I need to decide if the user query is relevant to the data.
-    If it is even partially related to the data, I will consider it relevant.
+    A user has asked a question. I can do one of three things:
+    
+    1. If the question is relevant to the data, I can answer
+    it by querying the database, doing analysis and providing
+    the results.
+    2. If the question is quite general and broad like "What
+    is the data about?" or "Waht can you tell me?", I can
+    provide a general overview of the data.
+    3. If the question is entirely unrelated to the data, I
+    can provide a response to help the user out.
     
     Here is the general description of the tables in
     our database (in triple brackets):
@@ -58,23 +66,20 @@ def create_relevance_prompt(
     Here is the user query:
     <<<{query_text}>>>
 
-    Should I consider the user query relevant to the data?
+    Which of the three should I do?
     
     Reply in a python parsable JSON with key "relevant"
-    equal to "True" (string) if:
-    - The query is even partially related to any aspect of the data
-    described, or
-    - The query is broad but can be addressed with a general
-    overview based on the context or data.
+    equal to "True" (string) if Option 1 is applicable.
 
-    Otherwise, set "relevant" to "False" (string) if:
-    - The query information is entirely unrelated to the database description, and
-    - The information requested cannot be derived in any way from the available data.
+    If Option 2 is applicable, set "relevant" to "False" but
+    provide another key "response" answering the user's query
+    using the general description of the tables. This response
+    should be in {language} and the script should be {script}.
     
-    If "False", provide another key "response" helping the user out .
-    I will share this response directly with
-    the user so address them directly. So, make sure the
-    "response" is in {language} and the script is {script}.
+    If Option 3 is applicable, set "relevant" to "False" and
+    provide another key "response" briefly guiding the user
+    on how to proceed. This response should be in {language}
+    and the script should be {script}.
 
     Take a deep breath and work on the problem step-by-step.
     """
