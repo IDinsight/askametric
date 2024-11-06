@@ -131,8 +131,7 @@ def create_best_columns_prompt(
 ) -> str:
     """Create prompt for best columns question."""
     prompt = f"""
-    Here is a question from a field employee who aims to
-    identify and enrol out of school girls based on the data in the database.
+    Here is a question from the user.
 
     ===== Question =====
     <<< {query_model["query_text"]} >>>

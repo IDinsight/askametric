@@ -10,6 +10,7 @@ from sqlalchemy.schema import CreateTable
 
 from ..utils import track_time
 
+
 _tools_instance = None
 _tools_instance_multiturn = None
 
@@ -60,20 +61,22 @@ class SQLTools:
         metadata = MetaData()
         return_schema = {table: "" for table in table_list}
 
-        def _do_reflect(_: Any) -> List[str]:
+        def _do_reflect(_: Any) -> defaultdict:
             """Reflect the tables."""
             engine = asession.get_bind()
             inspector = inspect(engine)
             existing_schemas_and_tables = defaultdict(list)
             for table_name in table_list:
                 result = table_name.split(".")
+
                 if len(result) == 2:
                     schema, table = result
                 else:
                     schema = None
                     table = result[0]
+
                 if inspector.has_table(table, schema=schema):
-                    existing_schemas_and_tables[schema].append(table_name)
+                    existing_schemas_and_tables[schema].append(table)
 
             for schema, tables in existing_schemas_and_tables.items():
                 metadata.reflect(bind=engine, schema=schema, only=tables, views=True)
@@ -83,21 +86,27 @@ class SQLTools:
         # Execute the reflection
         existing_schemas_and_tables = await asession.run_sync(_do_reflect)
 
-        for schema_name, table_name in existing_schemas_and_tables.items():
-            table = metadata.tables.get(f"{schema_name + '.' if schema_name else ''}{table_name}")
-            if table is not None:
-                ddl_statement = str(
-                    CreateTable(table).compile(bind=asession.get_bind())
-                )
-                return_schema[table.name] += f"\nTable: {table.name}\n{ddl_statement}\n"
+        for schema_name, table_names in existing_schemas_and_tables.items():
+            for table_name in table_names:
+                table_key = f"{schema_name + '.' if schema_name else ''}{table_name}"
+                table = metadata.tables.get(table_key)
 
-                # Fetching the first three rows from the table
-                first_n_rows_result = await asession.execute(select(table).limit(3))
-                first_n_rows = first_n_rows_result.mappings().all()
-                first_n_rows_str = "\n".join(
-                    ["\t".join(map(str, row.values())) for row in first_n_rows]
-                )
-                return_schema[table.name] += f"Sample rows:\n{first_n_rows_str}\n"
+                if table is not None:
+                    ddl_statement = str(
+                        CreateTable(table).compile(bind=asession.get_bind())
+                    )
+
+                    return_schema[
+                        table_key
+                    ] += f"\nTable: {table_key}\n{ddl_statement}\n"
+
+                    # Fetching the first three rows from the table
+                    first_n_rows_result = await asession.execute(select(table).limit(3))
+                    first_n_rows = first_n_rows_result.mappings().all()
+                    first_n_rows_str = "\n".join(
+                        ["\t".join(map(str, row.values())) for row in first_n_rows]
+                    )
+                    return_schema[table_key] += f"Sample rows:\n{first_n_rows_str}\n"
 
         return return_schema
 
