@@ -22,11 +22,15 @@ def create_safety_prompt(query_text: str, language: str, script: str) -> str:
     <<<{query_text}>>>
 
     Is the user query safe to run?
-    Reply in a python parsable json with key
-    "safe" equal to "True" (string) if the query is safe,
-    else "False" (string).
 
-    If "False", provide another key "response" with a brief
+    Reply in a python parsable JSON with key
+    "safe" equal to "True" (string) if the query is safe, or if the 
+    query is general, vague, or reflects confusion without any
+    clear violation of the above criteria. If there is any
+    indication of a safety concern based on the criteria,
+    set "safe" to "False" (string).
+
+    If safe is "False", provide another key "response" with a brief
     message explaining why the query is not safe.
     I will share this response directly with the user. So,
     make sure the "response" is in {language} and the script
@@ -57,11 +61,14 @@ def create_relevance_prompt(
 
     Should I conduct the analysis on this database?
 
-    Reply in a python parsable json with key
+    Reply in a python parsable JSON with key
     "relevant" equal to "False" (string) if:
-    the query information is not even slightly related
-    to the database description, OR it cannot be derived via analysis.
-    Else "relevant" equals "True" (string).
+    - The query information is entirely unrelated to the database description, or
+    - The information requested cannot be derived in any way from the available data.
+
+    Otherwise, set "relevant" to "True" (string) if:
+    - The query is even partially related to any aspect of the data described, or
+    - The query is broad but can be addressed with a general overview based on available data.
 
     If "False", provide another key "response" responding briefly
     to the user. I will share this response directly with
