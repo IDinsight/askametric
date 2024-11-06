@@ -107,22 +107,26 @@ class LLMQueryProcessor:
         """
         The function asks the LLM model to translate the user query into English
         """
-        system_message, prompt = english_translation_prompt(
-            query_model=self.query,
-            query_language=self.query_language,
-            query_script=self.query_script,
-        )
-        self.logger.debug(f"(Prompt) English Translation: {prompt}")
+        if self.query_language == "English" and self.query_script == "Latin":
+            self.eng_translation = self.query
+            return None
+        else:
+            system_message, prompt = english_translation_prompt(
+                query_model=self.query,
+                query_language=self.query_language,
+                query_script=self.query_script,
+            )
+            self.logger.debug(f"(Prompt) English Translation: {prompt}")
 
-        eng_translation_llm_response = await _ask_llm_json(
-            prompt, system_message, llm=self.llm, temperature=self.temperature
-        )
-        self.logger.debug(
-            f"(Response) English translation: {eng_translation_llm_response}"
-        )
+            eng_translation_llm_response = await _ask_llm_json(
+                prompt, system_message, llm=self.llm, temperature=self.temperature
+            )
+            self.logger.debug(
+                f"(Response) English translation: {eng_translation_llm_response}"
+            )
 
-        self.eng_translation = eng_translation_llm_response["answer"]
-        self.cost += float(eng_translation_llm_response["cost"])
+            self.eng_translation = eng_translation_llm_response["answer"]
+            self.cost += float(eng_translation_llm_response["cost"])
 
     @track_time(create_class_attr="timings")
     async def _get_best_tables_from_llm(self) -> None:
@@ -242,10 +246,7 @@ class LLMQueryProcessor:
         await self._get_query_language_from_llm()
 
         # Translate query into English to be used for LLM's processing steps
-        if self.query_language == "English":
-            self.eng_translation = self.query
-        else:
-            await self._english_translation()
+        await self._english_translation()
 
         # Check query safety
         await self.guardrails.check_safety(
@@ -357,16 +358,22 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         """
         The function translates the final answer to the user's query.
         """
-        system_message, prompt = english_translation_prompt(
-            query_model={"query_text": self.final_answer, "query_metadata": ""},
-            query_language="",
-            query_script="",
-        )
-
-        eng_translation_llm_response = await _ask_llm_json(
-            prompt, system_message, llm=self.llm, temperature=self.temperature
-        )
-        self.translated_answer = eng_translation_llm_response["answer"]["query_text"]
+        if self.query_language == "English" and self.query_script == "Latin":
+            self.translated_answer = self.final_answer
+            return None
+        else:
+            system_message, prompt = english_translation_prompt(
+                query_model={"query_text": self.final_answer, "query_metadata": ""},
+                query_language="",
+                query_script="",
+            )
+            self.logger.debug(f"(Prompt) Final English Translation: {prompt}")
+            eng_translation_llm_response = await _ask_llm_json(
+                prompt, system_message, llm=self.llm, temperature=self.temperature
+            )
+            self.translated_answer = eng_translation_llm_response["answer"][
+                "query_text"
+            ]
 
     @track_time(create_class_attr="timings")
     async def process_query(self) -> None:
@@ -379,7 +386,10 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
 
         # Get query language
         await self._get_query_language_from_llm()
-        await self._english_translation()
+        if self.query_language == "English" and self.query_script == "Latin":
+            self.eng_translation = self.query
+        else:
+            await self._english_translation()
 
         # Check query safety
         await self.guardrails.check_safety(

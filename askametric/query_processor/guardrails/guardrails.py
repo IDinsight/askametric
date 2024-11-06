@@ -98,7 +98,7 @@ class MultiTurnLLMGuardrails(LLMGuardRails):
         logger: logging.Logger,
     ) -> None:
         """Initialize the GuardRails class."""
-        super().__init__(gurdrails_llm, sys_message)
+        super().__init__(gurdrails_llm, sys_message, logger)
         self.guardrails_status["consistency"] = GuardRailsStatus.DID_NOT_RUN
 
     async def check_consistency(
