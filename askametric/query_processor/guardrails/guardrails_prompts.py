@@ -52,29 +52,32 @@ def create_relevance_prompt(
     Here is a user's query:
     <<<{query_text}>>>
 
-    I can do one of three things:
+    I can do one of four things:
     
     1. If the question is relevant to the data, I can answer
     it by querying the database, doing analysis and providing
     the results.
-    2. If the question is quite general and broad like "What
-    is the data about?" or "What can you tell me?", I can still
-    query the database and provide a general overview.
-    3. If it is unclear whether the question is unrelated, I should
+    2. If it is unclear whether the question is unrelated, I should
     not take risks and still query the database to provide an answer.
+    3. If the question is quite general and broad like "What
+    is the data about?" or "What can you tell me?", I can answer
+    the user based on the general description of the data.
     4. If the question is entirely unrelated to the data
-    (Example - "Do alient exist" or "Who is Elvis Presley"), I
+    (Example - "Do aliens exist" or "Who is Elvis Presley"), I
     can provide a brief response and smoothly guide them
     back to the context of the data.
     
-    Based on the database tables that I have and what
-    you know from your system message, which option
-    is applicable to the user query?
+    Based on the database tables and your system message,
+    which option is applicable to the user query?
     
     Reply in a python parsable JSON with key "relevant"
-    equal to "True" (string) if Option 1, 2, or 3 are applicable.
+    equal to "True" (string) if Option 1 or 2 are applicable.
     
     If Option 3 is applicable, set "relevant" to "False" and
+    provide another key "response" which answers the user's
+    question based on the general description of the data.
+    
+    If Option 4 is applicable, set "relevant" to "False" and
     provide another key "response" briefly guiding the user
     on how to proceed. This response should be in {language}
     and the script should be {script}.

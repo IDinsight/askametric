@@ -246,7 +246,7 @@ def create_final_answer_prompt(
 ) -> str:
     """Create prompt for final answer."""
     prompt = f"""
-    Here is a question from a user employee -
+    Here is a question from a user -
     ### Question
     <<< {query_model["query_text"]} >>>
 
@@ -276,9 +276,6 @@ def create_final_answer_prompt(
 
     Answer in {language} in the {script} script in the same
     mannerisms as the question.
-
-    If there is a LIMIT clause in the SQL query, ensure that the user is informed
-    where relevant.
     
     Remember, the user doesn't know what SQL is
     but are roughly familiar with what data is being
