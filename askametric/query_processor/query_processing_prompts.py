@@ -203,6 +203,12 @@ def create_sql_generating_prompt(
 
     Always use the query metadata to construct the SQL query.
 
+    Add a LIMIT 10 if the result set is expected to be unnecessarily
+    large (like 100+ rows). Otherwise, ensure that the query is exhaustive.
+    
+    Even for questions like "Best" or "Highest", ensure that the query is
+    not only LIMIT 1 but LIMIT with some margin to ensure there are no ties.
+
     For complex queries involving UNION and ORDER BY,
     use the following and replicate its structure EXACTLY.
     Example:
@@ -271,6 +277,9 @@ def create_final_answer_prompt(
     Answer in {language} in the {script} script in the same
     mannerisms as the question.
 
+    If there is a LIMIT clause in the SQL query, ensure that the user is informed
+    where relevant.
+    
     Remember, the user doesn't know what SQL is
     but are roughly familiar with what data is being
     collected a high level.

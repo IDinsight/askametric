@@ -391,18 +391,6 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         else:
             await self._english_translation()
 
-        # Check query safety
-        await self.guardrails.check_safety(
-            self.eng_translation["query_text"],
-            self.query_language,
-            self.query_script,
-        )
-
-        if self.guardrails.safe is False:
-            self.final_answer = self.guardrails.safety_response
-            await self._translate_final_answer()
-            return None
-
         # Check query consistency:
         await self.guardrails.check_consistency(
             self.eng_translation["query_text"],
@@ -416,6 +404,18 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             await self._get_reframed_query()
             self.eng_translation["original_query"] = self.eng_translation["query_text"]
             self.eng_translation["query_text"] = self.reframed_query
+
+        # Check query safety
+        await self.guardrails.check_safety(
+            self.eng_translation["query_text"],
+            self.query_language,
+            self.query_script,
+        )
+
+        if self.guardrails.safe is False:
+            self.final_answer = self.guardrails.safety_response
+            await self._translate_final_answer()
+            return None
 
         await self.guardrails.check_relevance(
             self.eng_translation["query_text"],
