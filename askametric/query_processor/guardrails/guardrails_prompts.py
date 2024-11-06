@@ -79,11 +79,12 @@ def create_relevance_prompt(
     
     If Option 4 is applicable, set "relevant" to "False" and
     provide another key "response" briefly guiding the user
-    on how to proceed. This response should be in {language}
-    and the script should be {script}.
+    on how to proceed.
     
     The "response" will be shared directly with the user so
     don't talk about tables and keep it non-technical.
+    Also, response should be in {language} and the script
+    should be {script}.
 
     Take a deep breath and work on the problem step-by-step.
     """
