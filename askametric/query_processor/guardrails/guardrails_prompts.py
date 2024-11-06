@@ -80,6 +80,9 @@ def create_relevance_prompt(
     provide another key "response" briefly guiding the user
     on how to proceed. This response should be in {language}
     and the script should be {script}.
+    
+    The "response" will be shared directly with the user so
+    don't talk about tables and keep it non-technical.
 
     Take a deep breath and work on the problem step-by-step.
     """
