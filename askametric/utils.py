@@ -41,7 +41,7 @@ def setup_logger(
     logger.setLevel(log_level)
 
     formatter = logging.Formatter(
-        "%(asctime)s %(filename)20s%(lineno)4s : %(message)s",
+        "%(message)s - %(asctime)s - %(filename)20s:%(lineno)4s\n",
         datefmt="%m/%d/%Y %I:%M:%S %p",
     )
 
