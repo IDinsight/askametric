@@ -20,7 +20,7 @@ def get_query_language_prompt(query_text: str) -> tuple[str, str]:
     3. "वहाँ कितने बिस्तर हैं?". Here the language is "Hindi" and
     the script is "Devanagari".
 
-    Here is a question from a field employee -
+    Here is a question from a user -
     ### Question
     <<<{query_text}>>>
 
@@ -41,7 +41,7 @@ def english_translation_prompt(
               Translate the user query into English."
 
     prompt = f"""
-    Here is a question from a field employee who needs some text translated
+    Here is a question from a user who needs some text translated
     to English.
 
     ===== Question =====
@@ -131,8 +131,8 @@ def create_best_columns_prompt(
 ) -> str:
     """Create prompt for best columns question."""
     prompt = f"""
-    Here is a question from a field employee who aims to
-    identify and enrol out of school girls based on the data in the database.
+    Here is a query that needs to be answered by conducting
+    data analysis on a database.
 
     ===== Question =====
     <<< {query_model["query_text"]} >>>
@@ -240,7 +240,7 @@ def create_final_answer_prompt(
 ) -> str:
     """Create prompt for final answer."""
     prompt = f"""
-    Here is a question from a field employee -
+    Here is a question from a user employee -
     ### Question
     <<< {query_model["query_text"]} >>>
 
@@ -255,7 +255,7 @@ def create_final_answer_prompt(
     <<<{final_sql_response}>>>
 
     ===== Instruction =====
-    Use the above information to create a final response for the field employee's
+    Use the above information to create a final response for the user's
     question.
 
     Always construct an answer that is as specific to the user as possible. Use the
@@ -271,7 +271,7 @@ def create_final_answer_prompt(
     Answer in {language} in the {script} script in the same
     mannerisms as the question.
 
-    Remember, the field employees don't know what SQL is
+    Remember, the user doesn't know what SQL is
     but are roughly familiar with what data is being
     collected a high level.
     """

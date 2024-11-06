@@ -48,10 +48,9 @@ def create_relevance_prompt(
     """
 
     prompt = f"""
-    I need to identify if I should conduct SQL operations
-    on the following database to answer a question asked
-    by a user.
-
+    I need to decide if the user query is relevant to the data.
+    If it is even partially related to the data, I will consider it relevant.
+    
     Here is the general description of the tables in
     our database (in triple brackets):
     <<<{table_description}>>>
@@ -59,19 +58,21 @@ def create_relevance_prompt(
     Here is the user query:
     <<<{query_text}>>>
 
-    Should I conduct the analysis on this database?
+    Should I consider the user query relevant to the data?
+    
+    Reply in a python parsable JSON with key "relevant"
+    equal to "True" (string) if:
+    - The query is even partially related to any aspect of the data
+    described, or
+    - The query is broad but can be addressed with a general
+    overview based on the context or data.
 
-    Reply in a python parsable JSON with key
-    "relevant" equal to "False" (string) if:
-    - The query information is entirely unrelated to the database description, or
+    Otherwise, set "relevant" to "False" (string) if:
+    - The query information is entirely unrelated to the database description, and
     - The information requested cannot be derived in any way from the available data.
-
-    Otherwise, set "relevant" to "True" (string) if:
-    - The query is even partially related to any aspect of the data described, or
-    - The query is broad but can be addressed with a general overview based on available data.
-
-    If "False", provide another key "response" responding briefly
-    to the user. I will share this response directly with
+    
+    If "False", provide another key "response" helping the user out .
+    I will share this response directly with
     the user so address them directly. So, make sure the
     "response" is in {language} and the script is {script}.
 
