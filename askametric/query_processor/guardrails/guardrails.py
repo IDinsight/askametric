@@ -1,4 +1,6 @@
+import logging
 from enum import Enum
+
 from ...utils import _ask_llm_json
 from .guardrails_prompts import (
     create_relevance_prompt,
@@ -26,6 +28,7 @@ class LLMGuardRails:
         self,
         gurdrails_llm: str,
         sys_message: str,
+        logger: logging.Logger,
     ) -> None:
         """Initialize the GuardRails class."""
         self.cost = 0.0
@@ -36,7 +39,7 @@ class LLMGuardRails:
             "relevance": GuardRailsStatus.DID_NOT_RUN,
             "safety": GuardRailsStatus.DID_NOT_RUN,
         }
-
+        self.logger = logger
         self.safety_response = ""
         self.relevance_response = ""
 
@@ -45,6 +48,7 @@ class LLMGuardRails:
         Handle the PII in the query.
         """
         prompt = create_safety_prompt(query, language, script)
+        self.logger.debug(f"(Guardrail Prompt) Safety: {prompt}")
         safety_response = await _ask_llm_json(
             prompt, self.system_message, self.guardrails_llm, self.temperature
         )
@@ -67,6 +71,7 @@ class LLMGuardRails:
         prompt = create_relevance_prompt(
             query, language, script, table_description=table_description
         )
+        self.logger.debug(f"(Guardrail Prompt) Relevance: {prompt}")
         relevance_response = await _ask_llm_json(
             prompt, self.system_message, self.guardrails_llm, self.temperature
         )
@@ -90,9 +95,10 @@ class MultiTurnLLMGuardrails(LLMGuardRails):
         self,
         gurdrails_llm: str,
         sys_message: str,
+        logger: logging.Logger,
     ) -> None:
         """Initialize the GuardRails class."""
-        super().__init__(gurdrails_llm, sys_message)
+        super().__init__(gurdrails_llm, sys_message, logger)
         self.guardrails_status["consistency"] = GuardRailsStatus.DID_NOT_RUN
 
     async def check_consistency(
@@ -102,6 +108,7 @@ class MultiTurnLLMGuardrails(LLMGuardRails):
         Handle the self-consistency of the query.
         """
         prompt = create_self_consistency_prompt(query)
+        self.logger.debug(f"(Guardrail Prompt) Consistency: {prompt}")
         consistency_response = await _ask_llm_json(
             prompt, self.system_message, self.guardrails_llm, self.temperature
         )
