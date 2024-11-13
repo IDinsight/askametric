@@ -32,17 +32,21 @@ def get_query_language_prompt(query_text: str) -> tuple[str, str]:
     return system_message, prompt
 
 
-def english_translation_prompt(
-    query_model: dict, query_language: str, query_script: str
+def translation_prompt(
+    query_model: dict,
+    original_query_language: str,
+    original_query_script: str,
+    translated_query_language: str,
+    translated_query_script: str,
 ) -> tuple[str, str]:
-    """Create prompt to translate the original query into english for pipeline"""
+    """Create prompt to translate the original query for pipeline"""
 
     system_message = "You are a highly-skilled linguist and polyglot.\
-              Translate the user query into English."
+              Translate the user query from an original into another input language."
 
     prompt = f"""
-    Here is a question from a user who needs some text translated
-    to English.
+    Here is a question from a user who needs some text translated from
+    {original_query_language} into {translated_query_language}.
 
     ===== Question =====
     <<< {query_model["query_text"]} >>>
@@ -53,19 +57,59 @@ def english_translation_prompt(
 
     ===== Current language =====
     The user query is currently in the following language:
-    <<< {query_language} >>>
+    <<< {original_query_language} >>>
 
     ===== Current language script =====
     The user query is currently using the following script:
-    <<< {query_script} >>>
+    <<< {original_query_script} >>>
+
+    ===== Translation language =====
+    Translate the user query into the following language:
+    <<< {translated_query_language} >>>
+
+    ===== Translation script =====
+    Translate the user query into the following script:
+    <<< {translated_query_script} >>>
 
     Take a deep breath and translate the text as accurately as possible.
 
     Only, reply in a python parsable json with key "query_text"
-    value being the user query translated into English and "query_metadata"
-    value being any available metadata translated into English.
+    value being the translated user query and "query_metadata"
+    value being a translation of any available metadata.
     """
     return system_message, prompt
+
+
+def create_question_type_prompt(query_text: str, chat_history: list) -> tuple[str, str]:
+    """Create prompt to identify the type of question."""
+    sys_message = "You are a highly-skilled linguist.\
+    Your job is to look at the chat history and use it to infer what type of question \
+    the user is asking."
+
+    prompt = f"""
+    ===== Question =====
+    <<< {query_text} >>>
+
+    ===== Chat History =====
+    Here is the chat history (might be empty if not available):
+    <<< {chat_history} >>>
+
+    ===== Question Type =====
+    There are 3 types of questions:
+    1. New Question: this is a question that introduces an entirely new topic,
+        unrelated to the chat history.
+    2. Follow-up Question: this is a question that builds on the chat history,
+        and seeks more information on previously discussed topics.
+    3. Clarification Question: this is a question that seeks to clarify something
+    that was mentioned in the chat history
+
+    Which of these three types does the Question fall under?
+    Respond with either 1, 2, or 3 based on the type of question.
+
+    ==== Response format ====
+    python parsable json with key "question_type".
+    """
+    return sys_message, prompt
 
 
 def create_reframe_query_prompt(query_text: str, chat_history: list) -> tuple[str, str]:
@@ -205,7 +249,7 @@ def create_sql_generating_prompt(
 
     Add a LIMIT 10 if the result set is expected to be unnecessarily
     large (like 100+ rows). Otherwise, ensure that the query is exhaustive.
-    
+
     Even for questions like "Best" or "Highest", ensure that the query is
     not only LIMIT 1 but LIMIT with some margin to ensure there are no ties.
 
@@ -276,10 +320,49 @@ def create_final_answer_prompt(
 
     Answer in {language} in the {script} script in the same
     mannerisms as the question.
-    
+
     Remember, the user doesn't know what SQL is
     but are roughly familiar with what data is being
     collected a high level.
     """
+    return prompt
 
+
+def create_clarifying_answer_prompt(
+    query_model: dict, chat_history: list, language: str, script: str
+) -> str:
+    """Create prompt to clarify the answer."""
+
+    prompt = f"""
+    ===== Question =====
+    <<< {query_model["query_text"]} >>>
+
+    ===== Metadata =====
+    Here is useful metadata (might be empty if not available):
+    <<< {query_model["query_metadata"]} >>>
+
+    ===== Chat History =====
+    <<< {chat_history} >>>
+
+    ===== Clarifying Answer =====
+    Based on the chat history, construct a final answer to the user's question.
+    Use the chat history to clarify the answer as much as possible.
+
+    Always construct an answer that is as specific to the user as possible. Use the
+    query metadata to do this.
+
+    Use ALL the information in the response to the SQL query to answer accurately
+    while also explaining how the answer was generated to the person who asked the
+    question. Take care to reproduce decimals and fractions accurately.
+
+    ===== Answer Format =====
+    python parsable json with only one key "answer".
+
+    Answer in {language} in the {script} script in the same
+    mannerisms as the question.
+
+    Remember, the user doesn't know what SQL is
+    but are roughly familiar with what data is being
+    collected a high level.
+    """
     return prompt
