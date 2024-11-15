@@ -15,7 +15,7 @@ from .query_processing_prompts import (
     create_clarifying_answer_prompt,
 )
 from .tools import SQLTools, get_tools, get_tools_multiturn
-from ..utils import setup_logger
+from ..utils import setup_logger, get_log_level_from_str
 
 
 class LLMQueryProcessor:
@@ -65,7 +65,7 @@ class LLMQueryProcessor:
         self.column_description = column_description
         self.indicator_vars = indicator_vars
         self.num_common_values = num_common_values
-        self.logger = setup_logger("query_processor", log_level)
+        self.logger = setup_logger("query_processor", get_log_level_from_str(log_level))
         self.guardrails: LLMGuardRails = LLMGuardRails(
             guardrails_llm, self.system_message, self.logger
         )
@@ -336,7 +336,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         self.query_type = None
         self.reframed_query = ""
         self.reframe_query_prompt = ""
-        self.translated_reframed_query = ""
+        self.translated_final_answer = ""
         self.chat_history = chat_history
 
     @track_time(create_class_attr="timings")
@@ -371,25 +371,6 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
 
         self.reframed_query = reframed_query_llm_response["answer"]["reframed_query"]
 
-        if self.query_language == "English" and self.query_script == "Latin":
-            self.translated_reframed_query = self.reframed_query
-
-        else:
-            system_message, prompt = translation_prompt(
-                query_model={"query_text": self.reframed_query, "query_metadata": ""},
-                original_query_language="English",
-                original_query_script="Latin",
-                translated_query_language=self.query_language,
-                translated_query_script=self.query_script,
-            )
-            self.logger.debug(f"(Prompt) Reframe Query Translation: {prompt}")
-            translated_query_llm_response = await _ask_llm_json(
-                prompt, system_message, llm=self.llm, temperature=self.temperature
-            )
-            self.translated_reframed_query = translated_query_llm_response["answer"][
-                "query_text"
-            ]
-
     @track_time(create_class_attr="timings")
     async def _get_clarifying_final_answer(self) -> None:
         prompt = create_clarifying_answer_prompt(
@@ -403,6 +384,25 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             prompt, self.system_message, llm=self.llm, temperature=self.temperature
         )
         self.final_answer = clarifying_answer_llm_response["answer"]["answer"]
+
+    @track_time(create_class_attr="timings")
+    async def _get_translated_final_answer(self) -> None:
+        if self.query_language == "English" and self.query_script == "Latin":
+            self.translated_final_answer = self.final_answer
+            return None
+
+        sys_message, prompt = translation_prompt(
+            query_model={"query_text": self.final_answer, "query_metadata": {}},
+            original_query_language=self.query_language,
+            original_query_script=self.query_script,
+            translated_query_language="English",
+            translated_query_script="Latin",
+        )
+        self.logger.debug(f"(Prompt) Translated Final Answer: {prompt}")
+        translated_final_answer_llm_response = await _ask_llm_json(
+            prompt, sys_message, llm=self.llm, temperature=self.temperature
+        )
+        self.translated_final_answer = translated_final_answer_llm_response["answer"]
 
     @track_time(create_class_attr="timings")
     async def process_query(self) -> None:
@@ -438,6 +438,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
 
         if self.guardrails.safe is False:
             self.final_answer = self.guardrails.safety_response
+            await self._get_translated_final_answer()
             return None
 
         await self.guardrails.check_relevance(
@@ -449,6 +450,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
 
         if self.guardrails.relevant is False:
             self.final_answer = self.guardrails.relevance_response
+            await self._get_translated_final_answer()
             return None
 
         if (self.query_type == 1) or (self.query_type == 2):
@@ -460,3 +462,5 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
 
         elif self.query_type == 3:
             await self._get_clarifying_final_answer()
+
+        await self._get_translated_final_answer()

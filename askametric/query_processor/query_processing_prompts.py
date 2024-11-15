@@ -96,12 +96,13 @@ def create_question_type_prompt(query_text: str, chat_history: list) -> tuple[st
 
     ===== Question Type =====
     There are 3 types of questions:
-    1. New Question: this is a question that introduces an entirely new topic,
-        unrelated to the chat history.
+    1. New Question: this is a question that introduces a new topic, and makes sense
+        without reference to the chat history.
     2. Follow-up Question: this is a question that builds on the chat history,
-        and seeks more information on previously discussed topics.
+        and seeks NEW information on previously discussed topics.
     3. Clarification Question: this is a question that seeks to clarify something
-    that was mentioned in the chat history
+        that was mentioned in the chat history, and seeks the SAME information as
+        previously provided.
 
     Which of these three types does the Question fall under?
     Respond with either 1, 2, or 3 based on the type of question.
@@ -306,7 +307,7 @@ def create_final_answer_prompt(
 
     ===== Instruction =====
     Use the above information to create a final response for the user's
-    question.
+    question. You CANNOT provide information that is not available in the database.
 
     Always construct an answer that is as specific to the user as possible. Use the
     query metadata to do this.
