@@ -20,7 +20,7 @@ def get_query_language_prompt(query_text: str) -> tuple[str, str]:
     3. "वहाँ कितने बिस्तर हैं?". Here the language is "Hindi" and
     the script is "Devanagari".
 
-    Here is a question from a field employee -
+    Here is a question from a user -
     ### Question
     <<<{query_text}>>>
 
@@ -41,7 +41,7 @@ def english_translation_prompt(
               Translate the user query into English."
 
     prompt = f"""
-    Here is a question from a field employee who needs some text translated
+    Here is a question from a user who needs some text translated
     to English.
 
     ===== Question =====
@@ -131,7 +131,8 @@ def create_best_columns_prompt(
 ) -> str:
     """Create prompt for best columns question."""
     prompt = f"""
-    Here is a question from the user.
+    Here is a query that needs to be answered by conducting
+    data analysis on a database.
 
     ===== Question =====
     <<< {query_model["query_text"]} >>>
@@ -202,6 +203,12 @@ def create_sql_generating_prompt(
 
     Always use the query metadata to construct the SQL query.
 
+    Add a LIMIT 10 if the result set is expected to be unnecessarily
+    large (like 100+ rows). Otherwise, ensure that the query is exhaustive.
+    
+    Even for questions like "Best" or "Highest", ensure that the query is
+    not only LIMIT 1 but LIMIT with some margin to ensure there are no ties.
+
     For complex queries involving UNION and ORDER BY,
     use the following and replicate its structure EXACTLY.
     Example:
@@ -239,7 +246,7 @@ def create_final_answer_prompt(
 ) -> str:
     """Create prompt for final answer."""
     prompt = f"""
-    Here is a question from a field employee -
+    Here is a question from a user -
     ### Question
     <<< {query_model["query_text"]} >>>
 
@@ -254,7 +261,7 @@ def create_final_answer_prompt(
     <<<{final_sql_response}>>>
 
     ===== Instruction =====
-    Use the above information to create a final response for the field employee's
+    Use the above information to create a final response for the user's
     question.
 
     Always construct an answer that is as specific to the user as possible. Use the
@@ -269,8 +276,8 @@ def create_final_answer_prompt(
 
     Answer in {language} in the {script} script in the same
     mannerisms as the question.
-
-    Remember, the field employees don't know what SQL is
+    
+    Remember, the user doesn't know what SQL is
     but are roughly familiar with what data is being
     collected a high level.
     """
