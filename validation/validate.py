@@ -21,9 +21,10 @@ DATA_SOURCES_PATH = "data_sources"
 TEST_CASES_PATH = "test_cases"
 RESULTS_PATH = "results"
 MAX_CONCURRENT_TASKS = 20
-LLM = os.getenv("LLM")
-VAL_LLM = os.getenv("VAL_LLM")
-GUARDRAILS_LLM = os.getenv("GUARDRAILS_LLM")
+LLM = os.environ["LLM"]
+VAL_LLM = os.environ["VAL_LLM"]
+GUARDRAILS_LLM = os.environ["GUARDRAILS_LLM"]
+LOG_LEVEL = os.environ["LOG_LEVEL"]
 
 
 async def main():
@@ -113,7 +114,7 @@ async def process_single_query(
                 column_description=env_vars["db_column_description"],
                 indicator_vars=env_vars["indicator_vars"],
                 num_common_values=env_vars["num_common_values"],
-                log_level="INFO",
+                log_level=LOG_LEVEL,
             )
 
             await query_processor.process_query()
@@ -132,6 +133,7 @@ async def process_single_query(
                 "request_status": "Success",
             }
     except Exception as e:
+        print(f"Error processing query: {e}")
         return {
             "db_name": db_name,
             "llm_response": None,
