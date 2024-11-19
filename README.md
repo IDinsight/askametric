@@ -68,4 +68,23 @@ And open the `demo.ipynb` file and run the cells to see the code in action!
 
 Open and run the `validation.ipynb` cells to see how to evaluate the responses from the pipeline for metrics like Relevancy, Consistenty, Accuracy, etc.
 
+You can also use the `validation.py` script to evaluate the pipeline in a faster and more automated way. You can go through the validation.ipynb to understand how to use the script.
+
+To do that, go through the following steps:
+
+1. Inside the validation folder, create 3 folders - `data_source`, `test_cases`, and `results`.
+2. Add the sqlite database files to the `data_source` folder.
+3. Add the test cases in the `test_cases` folder. Remember to keep filenames in the data_sources
+   and the test_cases folder the same. Example, tn_covid.sqlite and tn_covid.csv.
+4. In the same folder, create a .env file with the following variables:
+
+```
+<<<
+
+Use the validation_template.env
+file for reference
+
+>>>
+```
+
 _Note: This repository is a work-in-progress. We are continuously improving the code and documentation to help you use and further build on this code easily._
