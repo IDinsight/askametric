@@ -354,6 +354,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         )
         self.logger.debug(f"(Response) Query type: {query_type_llm_response}")
         self.query_type = int(query_type_llm_response["answer"]["question_type"])
+        self.cost += float(query_type_llm_response["cost"])
 
     @track_time(create_class_attr="timings")
     async def _get_reframed_query(self) -> None:
@@ -370,6 +371,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         )
 
         self.reframed_query = reframed_query_llm_response["answer"]["reframed_query"]
+        self.cost += float(reframed_query_llm_response["cost"])
 
     @track_time(create_class_attr="timings")
     async def _get_clarifying_final_answer(self) -> None:
@@ -384,6 +386,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             prompt, self.system_message, llm=self.llm, temperature=self.temperature
         )
         self.final_answer = clarifying_answer_llm_response["answer"]["answer"]
+        self.cost += float(clarifying_answer_llm_response["cost"])
 
     @track_time(create_class_attr="timings")
     async def _get_translated_final_answer(self) -> None:
@@ -403,6 +406,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             prompt, sys_message, llm=self.llm, temperature=self.temperature
         )
         self.translated_final_answer = translated_final_answer_llm_response["answer"]
+        self.cost += float(translated_final_answer_llm_response["cost"])
 
     @track_time(create_class_attr="timings")
     async def process_query(self) -> None:
