@@ -26,4 +26,4 @@ run-tests:
 
 # Run validation
 validate:
-	@cd validation && python validate.py && cd ..
+	@cd validation && python validate.py --path_to_data_sources "../databases" && cd ..

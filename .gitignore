@@ -1,4 +1,5 @@
 # Ignore validation data
+databases/
 /validation/data_sources/*.csv
 /validation/data_sources/*.sqlite
 /validation/data_sources/*.db

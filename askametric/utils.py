@@ -26,7 +26,7 @@ def get_log_level_from_str(log_level_str: str = "INFO") -> int:
 
 
 def setup_logger(
-    name: str = __name__, log_level: int = get_log_level_from_str()
+    name: str = __name__, log_level: int | str = get_log_level_from_str()
 ) -> Logger:
     """
     Setup logger for the application

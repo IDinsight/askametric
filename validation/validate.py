@@ -17,18 +17,19 @@ from askametric.validation.validation_processor import QueryEvaluator
 
 dotenv.load_dotenv()
 
-DATA_SOURCES_PATH = "data_sources"
-TEST_CASES_PATH = "test_cases"
-RESULTS_PATH = "results"
-MAX_CONCURRENT_TASKS = 20
-LLM = os.environ["LLM"]
-VAL_LLM = os.environ["VAL_LLM"]
-GUARDRAILS_LLM = os.environ["GUARDRAILS_LLM"]
-LOG_LEVEL = os.environ["LOG_LEVEL"]
 
+async def main(args):
+    if args.path_to_data_sources:
+        data_source_files = glob.glob(f"{args.path_to_data_sources}/*.sqlite")
+    else:
+        data_source_files = glob.glob(f"{DATA_SOURCES_PATH}/*.sqlite")
 
-async def main():
-    data_source_files = glob.glob(f"{DATA_SOURCES_PATH}/*.sqlite")
+    if not data_source_files:
+        raise FileNotFoundError(
+            f"No .sqlite files found in "
+            f"{args.path_to_data_sources or DATA_SOURCES_PATH}"
+        )
+
     all_results_df = pd.DataFrame()
     evaluator = QueryEvaluator(llm=VAL_LLM)
 
@@ -261,7 +262,23 @@ def get_async_session(db_name: str):
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--path_to_data_sources", type=str, default=None)
+    args = parser.parse_args()
+
+    DATA_SOURCES_PATH = args.path_to_data_sources or "data_sources"
+
+    TEST_CASES_PATH = "test_cases"
+    RESULTS_PATH = "results"
+    MAX_CONCURRENT_TASKS = 20
+    LLM = os.environ["LLM"]
+    VAL_LLM = os.environ["VAL_LLM"]
+    GUARDRAILS_LLM = os.environ["GUARDRAILS_LLM"]
+    LOG_LEVEL = os.environ["LOG_LEVEL"]
+
     time_start = time.time()
-    asyncio.run(main())
-    # Rounded to 2 decimal places
+    asyncio.run(main(args))
+
     print(f"Total time taken: {round(time.time() - time_start, 2)}s")

@@ -72,9 +72,9 @@ You can also use the `validate.py` script to evaluate the pipeline in a faster a
 
 To run the validate.py script, go through the following steps:
 
-1. Inside the validation folder, create 3 folders - `data_sources`, `test_cases`, and `results`.
-2. Add sqlite database test files to the `data_sources` folder.
-3. Add the test cases in the `test_cases` folder. Remember to keep filenames in the data_sources and the test_cases folder the same. Example, tn_covid.sqlite and tn_covid.csv.
+1. Inside the validation folder, create 2 folders - `test_cases`, and `results`.
+2. Add sqlite database test files to whichever folder you want, say the `databases` folder at the root directory.
+3. Add the test cases in the `test_cases` folder. Remember to keep filenames of the sqlite databases and the corresponging test_cases files the same. Example, tn_covid.sqlite and tn_covid.csv.
 4. In the validation folder, create a .env file with the following variables:
 
 ```
