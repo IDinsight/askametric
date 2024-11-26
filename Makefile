@@ -18,19 +18,6 @@ fresh-env :
 	python -m pip install -r requirements-dev.txt --ignore-installed; \
 	pre-commit install
 
-# Run the application
-run:
-	@docker compose -f ./deployment/docker-compose/docker-compose.dev.yml -p aam up --build -d
-
-restart:
-	@docker compose -f ./deployment/docker-compose/docker-compose.dev.yml -p aam down
-	@docker system prune -f
-	@docker compose -f ./deployment/docker-compose/docker-compose.dev.yml -p aam up --build -d
-
-# Stop the application
-stop:
-	@docker compose -f ./deployment/docker-compose/docker-compose.dev.yml -p aam down
-
 # Run tests
 tests: run-tests
 
@@ -39,5 +26,4 @@ run-tests:
 
 # Run validation
 validate:
-	@docker compose -f ./deployment/docker-compose/docker-compose.validation.yml down --remove-orphans
-	@docker compose -f ./deployment/docker-compose/docker-compose.validation.yml run --build --rm core_backend
+	@cd validation && python validate.py --path_to_data_sources "../databases" && cd ..

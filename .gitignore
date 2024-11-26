@@ -1,3 +1,15 @@
+# Ignore validation data
+databases/
+/validation/data_sources/*.csv
+/validation/data_sources/*.sqlite
+/validation/data_sources/*.db
+/validation/results/*.csv
+/validation/results/*.sqlite
+/validation/results/*.db
+/validation/test_cases/*.csv
+/validation/test_cases/*.sqlite
+/validation/test_cases/*.db
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
