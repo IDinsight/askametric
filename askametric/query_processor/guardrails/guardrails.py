@@ -5,7 +5,6 @@ from ...utils import _ask_llm_json
 from .guardrails_prompts import (
     create_relevance_prompt,
     create_safety_prompt,
-    create_self_consistency_prompt,
 )
 
 
@@ -16,7 +15,6 @@ class GuardRailsStatus(Enum):
     PASSED = "Passed"
     IRRELEVANT = "Query Irrelevant"
     UNSAFE = "Query unsafe"
-    INCONSISTENT = "Inconsistent"
 
 
 class LLMGuardRails:
@@ -84,40 +82,3 @@ class LLMGuardRails:
 
         self.cost += float(relevance_response["cost"])
         return relevance_response
-
-
-class MultiTurnLLMGuardrails(LLMGuardRails):
-    """Provides Functionality to
-    run guard rails on multi-turn query processing
-    pipeline."""
-
-    def __init__(
-        self,
-        gurdrails_llm: str,
-        sys_message: str,
-        logger: logging.Logger,
-    ) -> None:
-        """Initialize the GuardRails class."""
-        super().__init__(gurdrails_llm, sys_message, logger)
-        self.guardrails_status["consistency"] = GuardRailsStatus.DID_NOT_RUN
-
-    async def check_consistency(
-        self, query: str, language: str, script: str, chat_history: list = []
-    ) -> dict:
-        """
-        Handle the self-consistency of the query.
-        """
-        prompt = create_self_consistency_prompt(query)
-        self.logger.debug(f"(Guardrail Prompt) Consistency: {prompt}")
-        consistency_response = await _ask_llm_json(
-            prompt, self.system_message, self.guardrails_llm, self.temperature
-        )
-        self.consistent = consistency_response["answer"]["consistent"] == "True"
-        if self.consistent is False:
-            self.consistency_response = consistency_response["answer"]["response"]
-            self.guardrails_status["consistency"] = GuardRailsStatus.INCONSISTENT
-        else:
-            self.guardrails_status["consistency"] = GuardRailsStatus.PASSED
-
-        self.cost += float(consistency_response["cost"])
-        return consistency_response

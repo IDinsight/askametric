@@ -2,18 +2,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..utils import _ask_llm_json
 from ..utils import track_time
-from .guardrails.guardrails import LLMGuardRails, MultiTurnLLMGuardrails
+from .guardrails.guardrails import LLMGuardRails
 from .query_processing_prompts import (
     create_best_columns_prompt,
     create_best_tables_prompt,
     create_final_answer_prompt,
     create_sql_generating_prompt,
-    english_translation_prompt,
+    translation_prompt,
     get_query_language_prompt,
     create_reframe_query_prompt,
+    create_question_type_prompt,
+    create_clarifying_answer_prompt,
 )
 from .tools import SQLTools, get_tools, get_tools_multiturn
-from ..utils import setup_logger
+from ..utils import setup_logger, get_log_level_from_str
 
 
 class LLMQueryProcessor:
@@ -63,7 +65,7 @@ class LLMQueryProcessor:
         self.column_description = column_description
         self.indicator_vars = indicator_vars
         self.num_common_values = num_common_values
-        self.logger = setup_logger("query_processor", log_level)
+        self.logger = setup_logger("query_processor", get_log_level_from_str(log_level))
         self.guardrails: LLMGuardRails = LLMGuardRails(
             guardrails_llm, self.system_message, self.logger
         )
@@ -111,10 +113,12 @@ class LLMQueryProcessor:
             self.eng_translation = self.query
             return None
         else:
-            system_message, prompt = english_translation_prompt(
+            system_message, prompt = translation_prompt(
                 query_model=self.query,
-                query_language=self.query_language,
-                query_script=self.query_script,
+                original_query_language=self.query_language,
+                original_query_script=self.query_script,
+                translated_query_language="English",
+                translated_query_script="Latin",
             )
             self.logger.debug(f"(Prompt) English Translation: {prompt}")
 
@@ -329,14 +333,28 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             log_level,
         )
         self.tools: SQLTools = get_tools_multiturn()
-        self.guardrails: MultiTurnLLMGuardrails = MultiTurnLLMGuardrails(
-            guardrails_llm, self.system_message, self.logger
-        )
+        self.query_type = None
         self.reframed_query = ""
         self.reframe_query_prompt = ""
-        self.consistency_prompt = ""
+        self.translated_final_answer = ""
         self.chat_history = chat_history
-        self.translated_answer = ""
+
+    @track_time(create_class_attr="timings")
+    async def _get_query_type(self):
+        """
+        The function asks the LLM model to identify the type of the user's query.
+        """
+        system_message, prompt = create_question_type_prompt(
+            self.eng_translation, self.chat_history
+        )
+        self.logger.debug(f"(Prompt) Query Type: {prompt}")
+
+        query_type_llm_response = await _ask_llm_json(
+            prompt, system_message, llm=self.llm, temperature=self.temperature
+        )
+        self.logger.debug(f"(Response) Query type: {query_type_llm_response}")
+        self.query_type = int(query_type_llm_response["answer"]["question_type"])
+        self.cost += float(query_type_llm_response["cost"])
 
     @track_time(create_class_attr="timings")
     async def _get_reframed_query(self) -> None:
@@ -353,27 +371,42 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         )
 
         self.reframed_query = reframed_query_llm_response["answer"]["reframed_query"]
+        self.cost += float(reframed_query_llm_response["cost"])
 
-    async def _translate_final_answer(self) -> None:
-        """
-        The function translates the final answer to the user's query.
-        """
+    @track_time(create_class_attr="timings")
+    async def _get_clarifying_final_answer(self) -> None:
+        prompt = create_clarifying_answer_prompt(
+            self.eng_translation,
+            self.chat_history,
+            self.query_language,
+            self.query_script,
+        )
+        self.logger.debug(f"(Prompt) Clarifying Answer: {prompt}")
+        clarifying_answer_llm_response = await _ask_llm_json(
+            prompt, self.system_message, llm=self.llm, temperature=self.temperature
+        )
+        self.final_answer = clarifying_answer_llm_response["answer"]["answer"]
+        self.cost += float(clarifying_answer_llm_response["cost"])
+
+    @track_time(create_class_attr="timings")
+    async def _get_translated_final_answer(self) -> None:
         if self.query_language == "English" and self.query_script == "Latin":
-            self.translated_answer = self.final_answer
+            self.translated_final_answer = self.final_answer
             return None
-        else:
-            system_message, prompt = english_translation_prompt(
-                query_model={"query_text": self.final_answer, "query_metadata": ""},
-                query_language="",
-                query_script="",
-            )
-            self.logger.debug(f"(Prompt) Final English Translation: {prompt}")
-            eng_translation_llm_response = await _ask_llm_json(
-                prompt, system_message, llm=self.llm, temperature=self.temperature
-            )
-            self.translated_answer = eng_translation_llm_response["answer"][
-                "query_text"
-            ]
+
+        sys_message, prompt = translation_prompt(
+            query_model={"query_text": self.final_answer, "query_metadata": {}},
+            original_query_language=self.query_language,
+            original_query_script=self.query_script,
+            translated_query_language="English",
+            translated_query_script="Latin",
+        )
+        self.logger.debug(f"(Prompt) Translated Final Answer: {prompt}")
+        translated_final_answer_llm_response = await _ask_llm_json(
+            prompt, sys_message, llm=self.llm, temperature=self.temperature
+        )
+        self.translated_final_answer = translated_final_answer_llm_response["answer"]
+        self.cost += float(translated_final_answer_llm_response["cost"])
 
     @track_time(create_class_attr="timings")
     async def process_query(self) -> None:
@@ -391,16 +424,11 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         else:
             await self._english_translation()
 
-        # Check query consistency:
-        await self.guardrails.check_consistency(
-            self.eng_translation["query_text"],
-            self.query_language,
-            self.query_script,
-            self.chat_history[::-1],
-        )
+        # Check query type
+        await self._get_query_type()
 
-        if self.guardrails.consistent is False:
-            # Reframe and check relevance
+        # If not a new question, reframe the query
+        if self.query_type != 1:
             await self._get_reframed_query()
             self.eng_translation["original_query"] = self.eng_translation["query_text"]
             self.eng_translation["query_text"] = self.reframed_query
@@ -414,7 +442,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
 
         if self.guardrails.safe is False:
             self.final_answer = self.guardrails.safety_response
-            await self._translate_final_answer()
+            await self._get_translated_final_answer()
             return None
 
         await self.guardrails.check_relevance(
@@ -426,12 +454,17 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
 
         if self.guardrails.relevant is False:
             self.final_answer = self.guardrails.relevance_response
-            await self._translate_final_answer()
+            await self._get_translated_final_answer()
             return None
 
-        # Step through rest of pipeline
-        await self._get_best_tables_from_llm()
-        await self._get_best_columns_from_llm()
-        await self._get_sql_query_from_llm()
-        await self._get_final_answer_from_llm()
-        await self._translate_final_answer()
+        if (self.query_type == 1) or (self.query_type == 2):
+            # Step through rest of pipeline
+            await self._get_best_tables_from_llm()
+            await self._get_best_columns_from_llm()
+            await self._get_sql_query_from_llm()
+            await self._get_final_answer_from_llm()
+
+        elif self.query_type == 3:
+            await self._get_clarifying_final_answer()
+
+        await self._get_translated_final_answer()
