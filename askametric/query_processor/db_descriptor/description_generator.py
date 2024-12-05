@@ -1,4 +1,7 @@
-from .descriptor_prompts import generate_description_prompt
+from .descriptor_prompts import (
+    generate_description_prompt,
+    generate_suggested_questions_prompt,
+)
 from ...utils import _ask_llm_json, setup_logger, get_log_level_from_str
 from ..tools import get_tools, track_time
 import json
@@ -29,6 +32,8 @@ class DatabaseDescriptor:
 
         self.tools = get_tools()
         self._description_cache: TTLCache = TTLCache(maxsize=100, ttl=60 * 60 * 24)
+        self._description_cache["db_description"] = {}
+        self._description_cache["suggested_questions"] = {}
 
     @track_time(create_class_attr="timings")
     @cached(ttl=60 * 60 * 24)
@@ -50,7 +55,7 @@ class DatabaseDescriptor:
             column_description: The description of the columns in the table.
                 Defaults to None.
         """
-        if metric_db_id not in self._description_cache:
+        if metric_db_id not in self._description_cache["db_description"]:
             tables_list = [row["name"] for row in json.loads(table_description)]
             db_schema = await self.tools.get_tables_schema(
                 tables_list, asession, metric_db_id
@@ -71,6 +76,63 @@ class DatabaseDescriptor:
             self.logger.debug(
                 f"Generated description for {metric_db_id}: {generated_description}"
             )
-            self._description_cache[metric_db_id] = generated_description
+            self._description_cache["db_description"][
+                metric_db_id
+            ] = generated_description
 
-        return self._description_cache[metric_db_id]["answer"]["db_description"]
+        return self._description_cache["db_description"][metric_db_id]["answer"][
+            "db_description"
+        ]
+
+    @track_time(create_class_attr="timings")
+    @cached(ttl=60 * 60 * 24)
+    async def generate_suggested_questions(
+        self,
+        asession: AsyncSession,
+        metric_db_id: str,
+        sys_message: str,
+        table_description: str,
+        column_description: str = "",
+        chat_history: list = [],
+    ) -> str:
+        """
+        Generate suggested questions based on the database description.
+
+        Args:
+            system_prompt: The system prompt that sets the context for the
+                suggested questions.
+            table_description: The description of the table in the database.
+            column_description: The description of the columns in the table.
+                Defaults to None.
+            chat_history: The chat history to consider when generating the
+                suggested questions. Defaults to None.
+        """
+        if metric_db_id not in self._description_cache["suggested_questions"]:
+            tables_list = [row["name"] for row in json.loads(table_description)]
+            db_schema = await self.tools.get_tables_schema(
+                tables_list, asession, metric_db_id
+            )
+
+            system, prompt = generate_suggested_questions_prompt(
+                system_prompt=sys_message,
+                tables_description=table_description,
+                db_schema=db_schema,
+                column_description=column_description,
+                chat_history=chat_history,
+            )
+            generated_questions = await _ask_llm_json(
+                prompt=prompt,
+                system_message=system,
+                llm=self.llm,
+                temperature=self.temperature,
+            )
+            self.logger.debug(
+                f"Generated questions for {metric_db_id}:{generated_questions}"
+            )
+            self._description_cache["suggested_questions"][
+                metric_db_id
+            ] = generated_questions
+
+        return self._description_cache["suggested_questions"][metric_db_id]["answer"][
+            "suggested_questions"
+        ]
