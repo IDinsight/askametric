@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from cachetools import TTLCache
 from aiocache import cached
 
+_db_descriptor_instance = None
+
 
 class DatabaseDescriptor:
     """Generates helpful descriptions for the database"""
@@ -136,3 +138,20 @@ class DatabaseDescriptor:
         return self._description_cache["suggested_questions"][metric_db_id]["answer"][
             "suggested_questions"
         ]
+
+
+def get_db_descriptor(
+    llm: str = "gpt-4o", temperature: float = 0.1
+) -> DatabaseDescriptor:
+    """
+    Return the DatabaseDescriptor instance.
+
+    Args:
+        llm (str): The name of the LLM model to use. Defaults to "gpt-4o".
+        temperature (float): The temperature to use when generating descriptions.
+            Defaults to 0.1.
+    """
+    global _db_descriptor_instance
+    if _db_descriptor_instance is None:
+        _db_descriptor_instance = DatabaseDescriptor(llm=llm, temperature=temperature)
+    return _db_descriptor_instance
