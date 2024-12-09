@@ -95,7 +95,6 @@ class DatabaseDescriptor:
         sys_message: str,
         table_description: str,
         column_description: str = "",
-        chat_history: list = [],
     ) -> str:
         """
         Generate suggested questions based on the database description.
@@ -106,8 +105,6 @@ class DatabaseDescriptor:
             table_description: The description of the table in the database.
             column_description: The description of the columns in the table.
                 Defaults to None.
-            chat_history: The chat history to consider when generating the
-                suggested questions. Defaults to None.
         """
         if metric_db_id not in self._description_cache["suggested_questions"]:
             tables_list = [row["name"] for row in json.loads(table_description)]
@@ -120,7 +117,6 @@ class DatabaseDescriptor:
                 tables_description=table_description,
                 db_schema=db_schema,
                 column_description=column_description,
-                chat_history=chat_history,
             )
             generated_questions = await _ask_llm_json(
                 prompt=prompt,

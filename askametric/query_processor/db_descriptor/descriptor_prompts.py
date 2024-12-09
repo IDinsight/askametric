@@ -46,7 +46,6 @@ def generate_suggested_questions_prompt(
     tables_description: str,
     db_schema: str,
     column_description: str = "",
-    chat_history: list = [],
 ) -> tuple[str, str]:
     """
     Create prompt to get suggested questions
@@ -71,12 +70,9 @@ def generate_suggested_questions_prompt(
     ===== Database schema =====
     {db_schema}
 
-    ===== Chat history (may be empty)=====
-    {chat_history}
-
 
     ==== Suggested Questions ====
-    Based on the user input description, tables, columns, schema, and chat history,
+    Based on the user input description, tables, columns, and schema,
     provide a list of 5 NEW QUESTIONS that can be answered using the information
     available in the database.
     These questions should be SIMPLE, and NOT ask for correlation, relationship, etc.
