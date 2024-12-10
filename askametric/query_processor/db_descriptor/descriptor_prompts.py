@@ -8,10 +8,10 @@ def generate_description_prompt(
     Create prompt to get DB description
     """
     system = """
-    You are an expert in semantics and contextualization
-    Provide a DESCRIPTION the information available in the database,
+    You are an expert in semantics and contextualization.
+    Provide a DESCRIPTION of the information available in the database,
     do NOT provide specific numbers.
-    Be clear and descriptive, but concise.
+    Be clear and descriptive, but write a description with 150 WORDS OR LESS.
     Use bullet points and lists, to make for easier reading.
     """
     prompt = f"""
