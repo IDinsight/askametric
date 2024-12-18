@@ -34,8 +34,8 @@ class LLMGuardRails:
         self.system_message = sys_message
         self.temperature = 0.0
         self.guardrails_status = {
-            "relevance": GuardRailsStatus.DID_NOT_RUN.name,
-            "safety": GuardRailsStatus.DID_NOT_RUN.name,
+            "relevance": GuardRailsStatus.DID_NOT_RUN,
+            "safety": GuardRailsStatus.DID_NOT_RUN,
         }
         self.logger = logger
         self.safety_response = ""
@@ -53,9 +53,9 @@ class LLMGuardRails:
         self.safe = safety_response["answer"]["safe"] == "True"
         if self.safe is False:
             self.safety_response = safety_response["answer"]["response"]
-            self.guardrails_status["safety"] = GuardRailsStatus.UNSAFE.name
+            self.guardrails_status["safety"] = GuardRailsStatus.UNSAFE
         else:
-            self.guardrails_status["safety"] = GuardRailsStatus.PASSED.name
+            self.guardrails_status["safety"] = GuardRailsStatus.PASSED
 
         self.cost += float(safety_response["cost"])
         return safety_response
@@ -76,9 +76,9 @@ class LLMGuardRails:
         self.relevant = relevance_response["answer"]["relevant"] == "True"
         if self.relevant is False:
             self.relevance_response = relevance_response["answer"]["response"]
-            self.guardrails_status["relevance"] = GuardRailsStatus.IRRELEVANT.name
+            self.guardrails_status["relevance"] = GuardRailsStatus.IRRELEVANT
         else:
-            self.guardrails_status["relevance"] = GuardRailsStatus.PASSED.name
+            self.guardrails_status["relevance"] = GuardRailsStatus.PASSED
 
         self.cost += float(relevance_response["cost"])
         return relevance_response

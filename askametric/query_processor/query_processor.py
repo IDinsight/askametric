@@ -261,10 +261,7 @@ class LLMQueryProcessor:
 
         except Exception as e:
             self.logger.error(f"Error processing query: {e}")
-            self.final_answer = (
-                "Sorry we faced an error while processing your query. "
-                "Please ask another question."
-            )
+            self.final_answer = ""
             self.error = str(e)
 
             self.status = ProcessorStatus.INTERNAL_ERROR
