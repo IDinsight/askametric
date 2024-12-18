@@ -94,7 +94,7 @@ class DatabaseDescriptor:
         metric_db_id: str,
         sys_message: str,
         table_description: str,
-        column_description: str = "",
+        column_description: str | None = None,
     ) -> str:
         """
         Generate suggested questions based on the database description.
@@ -116,7 +116,7 @@ class DatabaseDescriptor:
                 system_prompt=sys_message,
                 tables_description=table_description,
                 db_schema=db_schema,
-                column_description=column_description,
+                column_description=column_description or "",
             )
             generated_questions = await _ask_llm_json(
                 prompt=prompt,
