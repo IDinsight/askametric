@@ -126,7 +126,7 @@ async def process_single_query(
                 "llm_ided_script": query_processor.query_script,
                 "llm_ided_language": query_processor.query_language,
                 "guardrails_status": {
-                    k: v.value
+                    k: v
                     for k, v in query_processor.guardrails.guardrails_status.items()
                 },
                 "llm_ided_best_tables": query_processor.best_tables,

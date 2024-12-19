@@ -1,21 +1,29 @@
+from enum import Enum
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..utils import _ask_llm_json
-from ..utils import track_time
+from ..utils import _ask_llm_json, get_log_level_from_str, setup_logger, track_time
 from .guardrails.guardrails import LLMGuardRails
 from .query_processing_prompts import (
     create_best_columns_prompt,
     create_best_tables_prompt,
-    create_final_answer_prompt,
-    create_sql_generating_prompt,
-    translation_prompt,
-    get_query_language_prompt,
-    create_reframe_query_prompt,
-    create_question_type_prompt,
     create_clarifying_answer_prompt,
+    create_final_answer_prompt,
+    create_question_type_prompt,
+    create_reframe_query_prompt,
+    create_sql_generating_prompt,
+    get_query_language_prompt,
+    translation_prompt,
 )
 from .tools import SQLTools, get_tools, get_tools_multiturn
-from ..utils import setup_logger, get_log_level_from_str
+
+
+class ProcessorStatus(Enum):
+    """Status of Query Processing Pipeline."""
+
+    NOT_RUN = "Did not run"
+    INTERNAL_ERROR = "Internal Error"
+    SUCCESS = "Success"
 
 
 class LLMQueryProcessor:
@@ -66,6 +74,7 @@ class LLMQueryProcessor:
         self.indicator_vars = indicator_vars
         self.num_common_values = num_common_values
         self.logger = setup_logger("query_processor", get_log_level_from_str(log_level))
+        self.status = ProcessorStatus.NOT_RUN
         self.guardrails: LLMGuardRails = LLMGuardRails(
             guardrails_llm, self.system_message, self.logger
         )
@@ -84,6 +93,7 @@ class LLMQueryProcessor:
         self.best_columns_prompt: str = ""
         self.sql_generating_prompt: str = ""
         self.final_answer_prompt: str = ""
+        self.error: str = ""
 
     @track_time(create_class_attr="timings")
     async def _get_query_language_from_llm(self) -> None:
@@ -242,19 +252,37 @@ class LLMQueryProcessor:
         self.final_answer_prompt = prompt
 
     @track_time(create_class_attr="timings")
+    async def _run_data_analysis(self) -> None:
+        try:
+            await self._get_best_tables_from_llm()
+            await self._get_best_columns_from_llm()
+            await self._get_sql_query_from_llm()
+            await self._get_final_answer_from_llm()
+
+        except Exception as e:
+            self.logger.error(f"Error processing query: {e}")
+            self.final_answer = ""
+            self.error = str(e)
+
+            self.status = ProcessorStatus.INTERNAL_ERROR
+
+    @track_time(create_class_attr="timings")
     async def process_query(self) -> None:
         """
         The function processes the user query and returns the final answer.
         """
-        # Get query language
+        # Get query language and translation
         await self._get_query_language_from_llm()
-
-        # Translate query into English to be used for LLM's processing steps
-        await self._english_translation()
+        if self.query_language == "English" and self.query_script == "Latin":
+            self.eng_translation = self.query
+        else:
+            await self._english_translation()
 
         # Check query safety
         await self.guardrails.check_safety(
-            self.eng_translation["query_text"], self.query_language, self.query_script
+            self.eng_translation["query_text"],
+            self.query_language,
+            self.query_script,
         )
         self.logger.debug(f"(Guardrails) Safety: {self.guardrails.safe}")
         if self.guardrails.safe is False:
@@ -273,10 +301,11 @@ class LLMQueryProcessor:
             self.final_answer = self.guardrails.relevance_response
             return None
 
-        await self._get_best_tables_from_llm()
-        await self._get_best_columns_from_llm()
-        await self._get_sql_query_from_llm()
-        await self._get_final_answer_from_llm()
+        await self._run_data_analysis()
+
+        # Set to success if no Internal Errors
+        if self.status != ProcessorStatus.INTERNAL_ERROR:
+            self.status = ProcessorStatus.SUCCESS
 
 
 class MultiTurnQueryProcessor(LLMQueryProcessor):
@@ -459,12 +488,13 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
 
         if (self.query_type == 1) or (self.query_type == 2):
             # Step through rest of pipeline
-            await self._get_best_tables_from_llm()
-            await self._get_best_columns_from_llm()
-            await self._get_sql_query_from_llm()
-            await self._get_final_answer_from_llm()
+            await self._run_data_analysis()
 
         elif self.query_type == 3:
             await self._get_clarifying_final_answer()
 
         await self._get_translated_final_answer()
+
+        # Set to success if no Internal Errors
+        if self.status != ProcessorStatus.INTERNAL_ERROR:
+            self.status = ProcessorStatus.SUCCESS
