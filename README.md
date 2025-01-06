@@ -2,7 +2,11 @@
 
 Ask-a-Metric is a Text-2-SQL python package which helps you answer questions using information from databases.
 
-# Demo Usage
+- 📌 [What is Ask-a-Metric?](https://www.idinsight.org/article/ask-a-metric-your-ai-data-analyst-on-whatsapp/)
+- 💬 [Chat with AAM!](https://demo.askametric.com/)
+- ⚙️ [How we built Ask-a-Metric](https://idinsight.github.io/tech-blog/blog/aam_pseudo_agent/)
+
+## Getting started
 
 Start with a fresh environment - either conda or venv.
 
