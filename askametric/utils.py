@@ -1,4 +1,3 @@
-from aiocache import cached
 import json
 import logging
 import time
@@ -6,7 +5,9 @@ from functools import wraps
 from logging import Logger
 from typing import Any, Callable
 
+from aiocache import cached
 from litellm import acompletion, completion_cost
+from tenacity import retry, stop_after_attempt, stop_before_delay
 
 
 def get_log_level_from_str(log_level_str: str = "INFO") -> int:
@@ -58,6 +59,9 @@ llm_call_logger = setup_logger("LLM_call")
 
 
 @cached(ttl=60 * 60 * 24)
+@retry(
+    stop=(stop_after_attempt(3) | stop_before_delay(10)),
+)
 async def ask_llm_json(
     prompt: str,
     system_message: str,
