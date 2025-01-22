@@ -58,7 +58,7 @@ llm_call_logger = setup_logger("LLM_call")
 
 
 @cached(ttl=60 * 60 * 24)
-async def _ask_llm_json(
+async def ask_llm_json(
     prompt: str,
     system_message: str,
     llm: str = "gpt-4o",

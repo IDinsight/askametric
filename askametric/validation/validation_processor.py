@@ -2,7 +2,7 @@
 from typing import Any, Callable
 import pandas as pd
 import numpy as np
-from askametric.utils import _ask_llm_json
+from askametric.utils import ask_llm_json
 from .validation_prompts import (
     grading_bot_prompt,
     get_relevancy_prompt,
@@ -43,7 +43,7 @@ class QueryEvaluator:
         relevancy_prompt = get_relevancy_prompt(
             question=question, llm_response=llm_response
         )
-        relevancy_evaluation = await _ask_llm_json(
+        relevancy_evaluation = await ask_llm_json(
             system_message=self.grading_bot_prompt,
             prompt=relevancy_prompt,
             llm=self.llm,
@@ -66,7 +66,7 @@ class QueryEvaluator:
         accuracy_prompt = get_accuracy_prompt(
             correct_answer=correct_answer, llm_response=llm_response
         )
-        accuracy_evaluation = await _ask_llm_json(
+        accuracy_evaluation = await ask_llm_json(
             system_message=self.grading_bot_prompt, prompt=accuracy_prompt, llm=self.llm
         )
         accuracy_evaluation = accuracy_evaluation["answer"]
@@ -120,7 +120,7 @@ class QueryEvaluator:
         instructions_prompt = get_instructions_prompt(
             question=question, instructions=instructions, llm_response=llm_response
         )
-        instructions_evaluation = await _ask_llm_json(
+        instructions_evaluation = await ask_llm_json(
             system_message=self.grading_bot_prompt,
             prompt=instructions_prompt,
             llm=self.llm,
@@ -138,7 +138,7 @@ class QueryEvaluator:
         consistency_prompt = get_consistency_prompt(
             question=question, llm_response=llm_response
         )
-        consistency_evaluation = await _ask_llm_json(
+        consistency_evaluation = await ask_llm_json(
             system_message=self.grading_bot_prompt,
             prompt=consistency_prompt,
             llm=self.llm,
