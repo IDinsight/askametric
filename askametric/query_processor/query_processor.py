@@ -2,7 +2,7 @@ from enum import Enum
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..utils import _ask_llm_json, get_log_level_from_str, setup_logger, track_time
+from ..utils import ask_llm_json, get_log_level_from_str, setup_logger, track_time
 from .guardrails.guardrails import LLMGuardRails
 from .query_processing_prompts import (
     create_best_columns_prompt,
@@ -105,7 +105,7 @@ class LLMQueryProcessor:
         self.language_prompt = prompt
         self.logger.debug(f"(Prompt) Language Detection: {prompt}")
 
-        query_language_llm_response = await _ask_llm_json(
+        query_language_llm_response = await ask_llm_json(
             prompt, system_message, llm=self.llm, temperature=self.temperature
         )
         self.logger.debug(f"(Response) Query language: {query_language_llm_response}")
@@ -132,7 +132,7 @@ class LLMQueryProcessor:
             )
             self.logger.debug(f"(Prompt) English Translation: {prompt}")
 
-            eng_translation_llm_response = await _ask_llm_json(
+            eng_translation_llm_response = await ask_llm_json(
                 prompt, system_message, llm=self.llm, temperature=self.temperature
             )
             self.logger.debug(
@@ -151,7 +151,7 @@ class LLMQueryProcessor:
         prompt = create_best_tables_prompt(self.eng_translation, self.table_description)
         self.logger.debug(f"(Prompt) Best Tables: {prompt}")
 
-        best_tables_llm_response = await _ask_llm_json(
+        best_tables_llm_response = await ask_llm_json(
             prompt, self.system_message, llm=self.llm, temperature=self.temperature
         )
         self.logger.debug(f"(Response) Best tables: {best_tables_llm_response}")
@@ -178,7 +178,7 @@ class LLMQueryProcessor:
         )
         self.logger.debug(f"(Prompt) Best Columns: {prompt}")
 
-        best_columns_llm_response = await _ask_llm_json(
+        best_columns_llm_response = await ask_llm_json(
             prompt, self.system_message, llm=self.llm, temperature=self.temperature
         )
         self.logger.debug(f"(Response) Best columns: {best_columns_llm_response}")
@@ -215,7 +215,7 @@ class LLMQueryProcessor:
         )
         self.logger.debug(f"(Prompt) SQL Generation: {prompt}")
 
-        sql_query_llm_response = await _ask_llm_json(
+        sql_query_llm_response = await ask_llm_json(
             prompt, self.system_message, llm=self.llm, temperature=self.temperature
         )
         self.logger.debug(f"(Response) SQL query: {sql_query_llm_response}")
@@ -242,7 +242,7 @@ class LLMQueryProcessor:
         )
         self.logger.debug(f"(Prompt) Final Answer: {prompt}")
 
-        final_answer_llm_response = await _ask_llm_json(
+        final_answer_llm_response = await ask_llm_json(
             prompt, self.system_message, llm=self.llm, temperature=self.temperature
         )
         self.logger.debug(f"(Response) Final answer: {final_answer_llm_response}")
@@ -378,7 +378,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         )
         self.logger.debug(f"(Prompt) Query Type: {prompt}")
 
-        query_type_llm_response = await _ask_llm_json(
+        query_type_llm_response = await ask_llm_json(
             prompt, system_message, llm=self.llm, temperature=self.temperature
         )
         self.logger.debug(f"(Response) Query type: {query_type_llm_response}")
@@ -395,7 +395,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         )
         self.logger.debug(f"(Prompt) Reframe Query: {prompt}")
         self.reframe_query_prompt = prompt
-        reframed_query_llm_response = await _ask_llm_json(
+        reframed_query_llm_response = await ask_llm_json(
             prompt, sys_message, llm=self.llm, temperature=self.temperature
         )
 
@@ -411,7 +411,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             self.query_script,
         )
         self.logger.debug(f"(Prompt) Clarifying Answer: {prompt}")
-        clarifying_answer_llm_response = await _ask_llm_json(
+        clarifying_answer_llm_response = await ask_llm_json(
             prompt, self.system_message, llm=self.llm, temperature=self.temperature
         )
         self.final_answer = clarifying_answer_llm_response["answer"]["answer"]
@@ -431,7 +431,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             translated_query_script="Latin",
         )
         self.logger.debug(f"(Prompt) Translated Final Answer: {prompt}")
-        translated_final_answer_llm_response = await _ask_llm_json(
+        translated_final_answer_llm_response = await ask_llm_json(
             prompt, sys_message, llm=self.llm, temperature=self.temperature
         )
         self.translated_final_answer = translated_final_answer_llm_response["answer"]

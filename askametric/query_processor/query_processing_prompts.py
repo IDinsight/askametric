@@ -28,6 +28,8 @@ def get_query_language_prompt(query_text: str) -> tuple[str, str]:
 
     Only, reply in a python parsable json with key "language"
     value being the language and "script" value being the script.
+
+    If the query seems gibberish, default to English and Latin.
     """
     return system_message, prompt
 

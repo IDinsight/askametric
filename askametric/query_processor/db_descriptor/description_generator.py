@@ -2,7 +2,7 @@ from .descriptor_prompts import (
     generate_description_prompt,
     generate_suggested_questions_prompt,
 )
-from ...utils import _ask_llm_json, setup_logger, get_log_level_from_str
+from ...utils import ask_llm_json, setup_logger, get_log_level_from_str
 from ..tools import get_tools, track_time
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,7 +69,7 @@ class DatabaseDescriptor:
                 db_schema=db_schema,
                 column_description=column_description,
             )
-            generated_description = await _ask_llm_json(
+            generated_description = await ask_llm_json(
                 prompt=prompt,
                 system_message=system,
                 llm=self.llm,
@@ -118,7 +118,7 @@ class DatabaseDescriptor:
                 db_schema=db_schema,
                 column_description=column_description or "",
             )
-            generated_questions = await _ask_llm_json(
+            generated_questions = await ask_llm_json(
                 prompt=prompt,
                 system_message=system,
                 llm=self.llm,

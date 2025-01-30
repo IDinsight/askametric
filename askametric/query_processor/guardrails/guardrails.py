@@ -1,7 +1,7 @@
 import logging
 from enum import Enum
 
-from ...utils import _ask_llm_json
+from ...utils import ask_llm_json
 from .guardrails_prompts import (
     create_relevance_prompt,
     create_safety_prompt,
@@ -47,7 +47,7 @@ class LLMGuardRails:
         """
         prompt = create_safety_prompt(query, language, script)
         self.logger.debug(f"(Guardrail Prompt) Safety: {prompt}")
-        safety_response = await _ask_llm_json(
+        safety_response = await ask_llm_json(
             prompt, self.system_message, self.guardrails_llm, self.temperature
         )
         self.safe = safety_response["answer"]["safe"] == "True"
@@ -70,7 +70,7 @@ class LLMGuardRails:
             query, language, script, table_description=table_description
         )
         self.logger.debug(f"(Guardrail Prompt) Relevance: {prompt}")
-        relevance_response = await _ask_llm_json(
+        relevance_response = await ask_llm_json(
             prompt, self.system_message, self.guardrails_llm, self.temperature
         )
         self.relevant = relevance_response["answer"]["relevant"] == "True"
