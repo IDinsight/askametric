@@ -46,6 +46,7 @@ class DatabaseDescriptor:
         sys_message: str,
         table_description: str,
         column_description: str = "",
+        api_key: str | None = None,
     ) -> str:
         """
         Generate a database description.
@@ -56,6 +57,7 @@ class DatabaseDescriptor:
             table_description: The description of the table in the database.
             column_description: The description of the columns in the table.
                 Defaults to None.
+            api_key: (Optional) API key to use for the LLM call
         """
         if metric_db_id not in self._description_cache["db_description"]:
             tables_list = [row["name"] for row in json.loads(table_description)]
@@ -74,6 +76,7 @@ class DatabaseDescriptor:
                 system_message=system,
                 llm=self.llm,
                 temperature=self.temperature,
+                api_key=api_key,
             )
             self.logger.debug(
                 f"Generated description for {metric_db_id}: {generated_description}"
@@ -95,6 +98,7 @@ class DatabaseDescriptor:
         sys_message: str,
         table_description: str,
         column_description: str | None = None,
+        api_key: str | None = None,
     ) -> str:
         """
         Generate suggested questions based on the database description.
@@ -105,6 +109,7 @@ class DatabaseDescriptor:
             table_description: The description of the table in the database.
             column_description: The description of the columns in the table.
                 Defaults to None.
+            api_key: (Optional) API key to use for the LLM call
         """
         if metric_db_id not in self._description_cache["suggested_questions"]:
             tables_list = [row["name"] for row in json.loads(table_description)]
@@ -123,6 +128,7 @@ class DatabaseDescriptor:
                 system_message=system,
                 llm=self.llm,
                 temperature=self.temperature,
+                api_key=api_key,
             )
             self.logger.debug(
                 f"Generated questions for {metric_db_id}:{generated_questions}"

@@ -94,6 +94,7 @@ class LLMQueryProcessor:
         self.sql_generating_prompt: str = ""
         self.final_answer_prompt: str = ""
         self.error: str = ""
+        self._api_key: str | None = None
 
     @track_time(create_class_attr="timings")
     async def _get_query_language_from_llm(self) -> None:
@@ -106,7 +107,11 @@ class LLMQueryProcessor:
         self.logger.debug(f"(Prompt) Language Detection: {prompt}")
 
         query_language_llm_response = await ask_llm_json(
-            prompt, system_message, llm=self.llm, temperature=self.temperature
+            prompt,
+            system_message,
+            llm=self.llm,
+            temperature=self.temperature,
+            api_key=self._api_key,
         )
         self.logger.debug(f"(Response) Query language: {query_language_llm_response}")
         self.query_language = query_language_llm_response["answer"]["language"]
@@ -133,7 +138,11 @@ class LLMQueryProcessor:
             self.logger.debug(f"(Prompt) English Translation: {prompt}")
 
             eng_translation_llm_response = await ask_llm_json(
-                prompt, system_message, llm=self.llm, temperature=self.temperature
+                prompt,
+                system_message,
+                llm=self.llm,
+                temperature=self.temperature,
+                api_key=self._api_key,
             )
             self.logger.debug(
                 f"(Response) English translation: {eng_translation_llm_response}"
@@ -152,7 +161,11 @@ class LLMQueryProcessor:
         self.logger.debug(f"(Prompt) Best Tables: {prompt}")
 
         best_tables_llm_response = await ask_llm_json(
-            prompt, self.system_message, llm=self.llm, temperature=self.temperature
+            prompt,
+            self.system_message,
+            llm=self.llm,
+            temperature=self.temperature,
+            api_key=self._api_key,
         )
         self.logger.debug(f"(Response) Best tables: {best_tables_llm_response}")
 
@@ -179,7 +192,11 @@ class LLMQueryProcessor:
         self.logger.debug(f"(Prompt) Best Columns: {prompt}")
 
         best_columns_llm_response = await ask_llm_json(
-            prompt, self.system_message, llm=self.llm, temperature=self.temperature
+            prompt,
+            self.system_message,
+            llm=self.llm,
+            temperature=self.temperature,
+            api_key=self._api_key,
         )
         self.logger.debug(f"(Response) Best columns: {best_columns_llm_response}")
 
@@ -216,7 +233,11 @@ class LLMQueryProcessor:
         self.logger.debug(f"(Prompt) SQL Generation: {prompt}")
 
         sql_query_llm_response = await ask_llm_json(
-            prompt, self.system_message, llm=self.llm, temperature=self.temperature
+            prompt,
+            self.system_message,
+            llm=self.llm,
+            temperature=self.temperature,
+            api_key=self._api_key,
         )
         self.logger.debug(f"(Response) SQL query: {sql_query_llm_response}")
 
@@ -243,7 +264,11 @@ class LLMQueryProcessor:
         self.logger.debug(f"(Prompt) Final Answer: {prompt}")
 
         final_answer_llm_response = await ask_llm_json(
-            prompt, self.system_message, llm=self.llm, temperature=self.temperature
+            prompt,
+            self.system_message,
+            llm=self.llm,
+            temperature=self.temperature,
+            api_key=self._api_key,
         )
         self.logger.debug(f"(Response) Final answer: {final_answer_llm_response}")
 
@@ -267,10 +292,15 @@ class LLMQueryProcessor:
             self.status = ProcessorStatus.INTERNAL_ERROR
 
     @track_time(create_class_attr="timings")
-    async def process_query(self) -> None:
+    async def process_query(self, api_key: str | None = None) -> None:
         """
         The function processes the user query and returns the final answer.
+
+        Args:
+            api_key (str or None): (Optional) API key to use for the LLM call
         """
+        self._api_key = api_key
+
         # Get query language and translation
         await self._get_query_language_from_llm()
         if self.query_language == "English" and self.query_script == "Latin":
@@ -283,6 +313,7 @@ class LLMQueryProcessor:
             self.eng_translation["query_text"],
             self.query_language,
             self.query_script,
+            api_key=self._api_key,
         )
         self.logger.debug(f"(Guardrails) Safety: {self.guardrails.safe}")
         if self.guardrails.safe is False:
@@ -295,6 +326,7 @@ class LLMQueryProcessor:
             self.query_language,
             self.query_script,
             self.table_description,
+            api_key=self._api_key,
         )
         self.logger.debug(f"(Guardrails) Relevance: {self.guardrails.relevant}")
         if self.guardrails.relevant is False:
@@ -302,6 +334,8 @@ class LLMQueryProcessor:
             return None
 
         await self._run_data_analysis()
+
+        self._api_key = None
 
         # Set to success if no Internal Errors
         if self.status != ProcessorStatus.INTERNAL_ERROR:
@@ -379,7 +413,11 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         self.logger.debug(f"(Prompt) Query Type: {prompt}")
 
         query_type_llm_response = await ask_llm_json(
-            prompt, system_message, llm=self.llm, temperature=self.temperature
+            prompt,
+            system_message,
+            llm=self.llm,
+            temperature=self.temperature,
+            api_key=self._api_key,
         )
         self.logger.debug(f"(Response) Query type: {query_type_llm_response}")
         self.query_type = int(query_type_llm_response["answer"]["question_type"])
@@ -396,7 +434,11 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         self.logger.debug(f"(Prompt) Reframe Query: {prompt}")
         self.reframe_query_prompt = prompt
         reframed_query_llm_response = await ask_llm_json(
-            prompt, sys_message, llm=self.llm, temperature=self.temperature
+            prompt,
+            sys_message,
+            llm=self.llm,
+            temperature=self.temperature,
+            api_key=self._api_key,
         )
 
         self.reframed_query = reframed_query_llm_response["answer"]["reframed_query"]
@@ -412,7 +454,11 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         )
         self.logger.debug(f"(Prompt) Clarifying Answer: {prompt}")
         clarifying_answer_llm_response = await ask_llm_json(
-            prompt, self.system_message, llm=self.llm, temperature=self.temperature
+            prompt,
+            self.system_message,
+            llm=self.llm,
+            temperature=self.temperature,
+            api_key=self._api_key,
         )
         self.final_answer = clarifying_answer_llm_response["answer"]["answer"]
         self.cost += float(clarifying_answer_llm_response["cost"])
@@ -432,19 +478,24 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         )
         self.logger.debug(f"(Prompt) Translated Final Answer: {prompt}")
         translated_final_answer_llm_response = await ask_llm_json(
-            prompt, sys_message, llm=self.llm, temperature=self.temperature
+            prompt,
+            sys_message,
+            llm=self.llm,
+            temperature=self.temperature,
+            api_key=self._api_key,
         )
         self.translated_final_answer = translated_final_answer_llm_response["answer"]
         self.cost += float(translated_final_answer_llm_response["cost"])
 
     @track_time(create_class_attr="timings")
-    async def process_query(self) -> None:
+    async def process_query(self, api_key: str | None = None) -> None:
         """
         The function processes the user query and returns the final answer.
 
         Args:
-            query: The user query and query metadata.
+            api_key (str or None): (Optional) API key to use for the LLM call
         """
+        self._api_key = api_key
 
         # Get query language
         await self._get_query_language_from_llm()
@@ -467,6 +518,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             self.eng_translation["query_text"],
             self.query_language,
             self.query_script,
+            api_key=self._api_key,
         )
 
         if self.guardrails.safe is False:
@@ -479,6 +531,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             self.query_language,
             self.query_script,
             self.table_description,
+            api_key=self._api_key,
         )
 
         if self.guardrails.relevant is False:
@@ -494,6 +547,8 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             await self._get_clarifying_final_answer()
 
         await self._get_translated_final_answer()
+
+        self._api_key = None
 
         # Set to success if no Internal Errors
         if self.status != ProcessorStatus.INTERNAL_ERROR:

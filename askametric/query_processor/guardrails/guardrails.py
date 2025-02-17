@@ -41,14 +41,20 @@ class LLMGuardRails:
         self.safety_response = ""
         self.relevance_response = ""
 
-    async def check_safety(self, query: str, language: str, script: str) -> dict:
+    async def check_safety(
+        self, query: str, language: str, script: str, api_key: str | None
+    ) -> dict:
         """
         Handle the PII in the query.
         """
         prompt = create_safety_prompt(query, language, script)
         self.logger.debug(f"(Guardrail Prompt) Safety: {prompt}")
         safety_response = await ask_llm_json(
-            prompt, self.system_message, self.guardrails_llm, self.temperature
+            prompt,
+            self.system_message,
+            self.guardrails_llm,
+            self.temperature,
+            api_key=api_key,
         )
         self.safe = safety_response["answer"]["safe"] == "True"
         if self.safe is False:
@@ -61,7 +67,12 @@ class LLMGuardRails:
         return safety_response
 
     async def check_relevance(
-        self, query: str, language: str, script: str, table_description: str
+        self,
+        query: str,
+        language: str,
+        script: str,
+        table_description: str,
+        api_key: str | None = None,
     ) -> dict:
         """
         Handle the relevance of the query.
@@ -71,7 +82,11 @@ class LLMGuardRails:
         )
         self.logger.debug(f"(Guardrail Prompt) Relevance: {prompt}")
         relevance_response = await ask_llm_json(
-            prompt, self.system_message, self.guardrails_llm, self.temperature
+            prompt,
+            self.system_message,
+            self.guardrails_llm,
+            self.temperature,
+            api_key=api_key,
         )
         self.relevant = relevance_response["answer"]["relevant"] == "True"
         if self.relevant is False:
