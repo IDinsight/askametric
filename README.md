@@ -54,8 +54,18 @@ poetry install
 
 In the root directory, create a `.env` file and add the following variables:
 
+For OpenAI models:
+
 ```
 OPENAI_API_KEY=<your_openai_api_key>
+```
+
+For AWS Bedrock models (e.g., Claude):
+
+```
+AWS_ACCESS_KEY_ID=<your_aws_access_key_id>
+AWS_SECRET_ACCESS_KEY=<your_aws_secret_access_key>
+AWS_REGION=<your_aws_region>
 ```
 
 ### 4. Run the demo notebook
@@ -68,9 +78,56 @@ jupyter notebook
 
 And open the `demo.ipynb` file and run the cells to see the code in action!
 
-### 5. Evaluating the pipeline
+### 5. Switching between models
 
-Open and run the `validation.ipynb` cells to see how to evaluate the responses from the pipeline for metrics like Relevancy, Consistenty, Accuracy, etc.
+You can configure the model to use by setting the `llm` parameter in the LLMQueryProcessor. For example:
+
+- To use OpenAI GPT-4o:
+
+  ```python
+  llm = "gpt-4o"
+  ```
+
+- To use AWS Claude 3.7 via Bedrock (Assuming the region is set to `us`):
+  ```python
+  llm = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+  ```
+
+Ensure the corresponding environment variables are set in the `.env` file.
+
+Additionally, you can specify different models for various components in the query processor:
+
+- **Primary LLM**: Set the `llm` variable for the main language model.
+- **Guardrails**: Set the `guardrails_llm` variable for enforcing constraints or rules.
+- **Validation**: Set the `validation_llm` variable for validating responses.
+
+Example:
+
+```python
+llm = "gpt-4o"
+guardrails_llm = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+validation_llm = "gpt-4o"
+
+qp = LLMQueryProcessor(
+    query,
+    session,
+    metric_db_id,
+    db_type,
+    llm,
+    guardrails_llm,
+    sys_message,
+    db_description,
+    column_description="",
+    num_common_values=num_common_values,
+    indicator_vars=indicator_vars,
+)
+```
+
+This allows you to mix and match models based on your requirements.
+
+### 6. Evaluating the pipeline
+
+Open and run the `validation.ipynb` cells to see how to evaluate the responses from the pipeline for metrics like Relevancy, Consistency, Accuracy, etc.
 
 You can also use the `validate.py` script to evaluate the pipeline in a faster and more automated way.
 
@@ -78,7 +135,7 @@ To run the validate.py script, go through the following steps:
 
 1. Inside the validation folder, create 2 folders - `test_cases`, and `results`.
 2. Add sqlite database test files to whichever folder you want, say the `databases` folder at the root directory.
-3. Add the test cases in the `test_cases` folder. Remember to keep filenames of the sqlite databases and the corresponging test_cases files the same. Example, tn_covid.sqlite and tn_covid.csv.
+3. Add the test cases in the `test_cases` folder. Remember to keep filenames of the sqlite databases and the corresponding test_cases files the same. Example, tn_covid.sqlite and tn_covid.csv.
 4. In the validation folder, create a .env file with the following variables:
 
 ```
@@ -90,7 +147,7 @@ file for reference
 >>>
 ```
 
-5. Open up the terminal in the root director and run the following command:
+5. Open up the terminal in the root directory and run the following command:
 
 ```
 make validate
