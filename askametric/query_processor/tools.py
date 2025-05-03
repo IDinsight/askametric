@@ -18,8 +18,9 @@ _tools_instance_multiturn = None
 class SQLTools:
     """Tools to query the SQL database."""
 
-    def __init__(self) -> None:
+    def __init__(self, db_type: str = "sqlite") -> None:
         """Initialize the SQLTools class."""
+        self.db_type = db_type.lower()
         self._max_sql_response_length = 20000
         self._response_too_long_message = "Sorry, SQL response was too long"
         self._schema_cache: TTLCache = TTLCache(maxsize=100, ttl=60 * 60 * 24)
@@ -37,6 +38,20 @@ class SQLTools:
             return response
 
         return wrapper
+
+    async def get_common_value_query(self, table: str, column: str) -> str:
+        """Generate a SQL query to get the first value from a column based on DB type"""
+        if self.db_type == "mssql":
+            return f"""
+            SELECT {column} 
+            FROM (
+                SELECT {column}, ROW_NUMBER() OVER (ORDER BY {column} ASC) AS rn 
+                FROM {table}
+            ) t
+            WHERE rn = 1
+            """
+        else:  # default to SQLite syntax
+            return f"SELECT {column} FROM {table} LIMIT 1"
 
     @track_time(create_class_attr="timings")
     @cached(ttl=60 * 60 * 24)
@@ -217,17 +232,17 @@ class SQLTools:
         return sql_response.fetchall()
 
 
-def get_tools() -> SQLTools:
+def get_tools(db_type: str = "sqlite") -> SQLTools:
     """Return the SQLTools instance."""
     global _tools_instance
     if _tools_instance is None:
-        _tools_instance = SQLTools()
+        _tools_instance = SQLTools(db_type)
     return _tools_instance
 
 
-def get_tools_multiturn() -> SQLTools:
+def get_tools_multiturn(db_type: str = "sqlite") -> SQLTools:
     """Return the SQLTools instance."""
     global _tools_instance_multiturn
     if _tools_instance_multiturn is None:
-        _tools_instance_multiturn = SQLTools()
+        _tools_instance_multiturn = SQLTools(db_type)
     return _tools_instance_multiturn
