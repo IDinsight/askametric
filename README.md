@@ -50,7 +50,7 @@ And finally, install all the required packages:
 poetry install
 ```
 
-### 3. Set up the .env file
+### 3.a. Set up the .env file
 
 In the root directory, create a `.env` file and add the following variables:
 
@@ -67,6 +67,13 @@ AWS_ACCESS_KEY_ID=<your_aws_access_key_id>
 AWS_SECRET_ACCESS_KEY=<your_aws_secret_access_key>
 AWS_REGION=<your_aws_region>
 ```
+
+### 3.b. Manually add LLM configuration
+
+Alternatively, you can add the LLM configuration in the demo notebook directly. This way
+is more relevant for running askametric in a server environment.
+
+The notebook has sections where you can choose which provider to test.
 
 ### 4. Run the demo notebook
 
