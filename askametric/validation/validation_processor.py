@@ -18,12 +18,20 @@ class QueryEvaluator:
     a specific database
     """
 
-    def __init__(self, llm: str, temperature: float = 0.0) -> None:
+    def __init__(
+        self,
+        llm: str,
+        temperature: float = 0.0,
+        api_key: str | None = None,
+        llm_config: dict | None = None,
+    ) -> None:
         """
         Init
 
         llm: the LLM to be used
         temperature: the temperature to use. Default is 0.0
+        api_key: the API key to use for the LLM
+        llm_config: the LLM config to use for the LLM
         """
         self.llm = llm
         self.temperature = temperature
@@ -36,12 +44,13 @@ class QueryEvaluator:
             "Consistency": self.test_consistency,
             "Instructions": self.test_instructions,
         }
+        self._api_key = api_key
+        self._llm_config = llm_config
 
     async def test_relevancy(
         self,
         question: str,
         llm_response: str,
-        api_key: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         relevancy_prompt = get_relevancy_prompt(
@@ -52,7 +61,8 @@ class QueryEvaluator:
             prompt=relevancy_prompt,
             llm=self.llm,
             temperature=self.temperature,
-            api_key=api_key,
+            api_key=self._api_key,
+            llm_config=self._llm_config,
         )
         relevancy_evaluation = relevancy_evaluation["answer"]
 
@@ -66,7 +76,6 @@ class QueryEvaluator:
         llm_response: str,
         llm_ided_script: str,
         llm_ided_language: str,
-        api_key: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         accuracy_prompt = get_accuracy_prompt(
@@ -76,7 +85,8 @@ class QueryEvaluator:
             system_message=self.grading_bot_prompt,
             prompt=accuracy_prompt,
             llm=self.llm,
-            api_key=api_key,
+            api_key=self._api_key,
+            llm_config=self._llm_config,
         )
         accuracy_evaluation = accuracy_evaluation["answer"]
 
@@ -128,7 +138,6 @@ class QueryEvaluator:
         question: str,
         llm_response: str,
         instructions: str,
-        api_key: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         instructions_prompt = get_instructions_prompt(
@@ -139,7 +148,8 @@ class QueryEvaluator:
             prompt=instructions_prompt,
             llm=self.llm,
             temperature=self.temperature,
-            api_key=api_key,
+            api_key=self._api_key,
+            llm_config=self._llm_config,
         )
         instructions_evaluation = instructions_evaluation["answer"]
         return {f"instructions_{k}": val for k, val in instructions_evaluation.items()}
@@ -148,7 +158,6 @@ class QueryEvaluator:
         self,
         question: str,
         llm_response: str,
-        api_key: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -162,7 +171,8 @@ class QueryEvaluator:
             prompt=consistency_prompt,
             llm=self.llm,
             temperature=self.temperature,
-            api_key=api_key,
+            api_key=self._api_key,
+            llm_config=self._llm_config,
         )
         consistency_evaluation = consistency_evaluation["answer"]
         return {f"consistency_{k}": val for k, val in consistency_evaluation.items()}
@@ -187,7 +197,9 @@ class QueryEvaluator:
             }
 
     async def evaluate(
-        self, groundtruth: dict, response_to_evaluate: dict, api_key: str | None = None
+        self,
+        groundtruth: dict,
+        response_to_evaluate: dict,
     ) -> dict[str, Any]:
         """
         Get validation results for input
@@ -195,7 +207,6 @@ class QueryEvaluator:
         Args:
             groundtruth: the groundtruth data
             response_to_evaluate: the response to evaluate
-            api_key: (Optional) API Key for LLM calls
         """
         tests_to_run = groundtruth["tests_to_run"]
         results = {}
@@ -205,7 +216,10 @@ class QueryEvaluator:
         for test in tests_to_run:
             try:
                 test_result = await self.allowed_tests[test](
-                    **groundtruth, **response_to_evaluate, api_key=api_key
+                    **groundtruth,
+                    **response_to_evaluate,
+                    api_key=self._api_key,
+                    llm_config=self._llm_config,
                 )
                 results.update(test_result)
             except KeyError:
@@ -219,7 +233,6 @@ class QueryEvaluator:
         groundtruth_data: list[dict],
         responses_to_evaluate: list[dict],
         instructions: str,
-        api_key: str | None = None,
     ):
         """
         Get evaluation results for a list of responses
@@ -228,14 +241,16 @@ class QueryEvaluator:
             groundtruth_data: the dictionary of groundtruth data
             responses_to_evaluate: the dictionary of responses to evaluate
             instructions: the instructions to evaluate against
-            api_key: (Optional) API key for LLM calls
         """
         eval_results = []
         for i, val_question in enumerate(groundtruth_data):
             val_question["instructions"] = instructions
 
             llm_response = responses_to_evaluate[i]
-            result = await self.evaluate(val_question, llm_response, api_key=api_key)
+            result = await self.evaluate(
+                val_question,
+                llm_response,
+            )
             eval_results.append(result)
         return pd.DataFrame(eval_results)
 
