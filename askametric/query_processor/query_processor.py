@@ -95,6 +95,7 @@ class LLMQueryProcessor:
         self.final_answer_prompt: str = ""
         self.error: str = ""
         self._api_key: str | None = None
+        self._llm_connection_config: dict | None = None
 
     @track_time(create_class_attr="timings")
     async def _get_query_language_from_llm(self) -> None:
@@ -112,6 +113,7 @@ class LLMQueryProcessor:
             llm=self.llm,
             temperature=self.temperature,
             api_key=self._api_key,
+            llm_config=self._llm_connection_config,
         )
         self.logger.debug(f"(Response) Query language: {query_language_llm_response}")
         self.query_language = query_language_llm_response["answer"]["language"]
@@ -143,6 +145,7 @@ class LLMQueryProcessor:
                 llm=self.llm,
                 temperature=self.temperature,
                 api_key=self._api_key,
+                llm_config=self._llm_connection_config,
             )
             self.logger.debug(
                 f"(Response) English translation: {eng_translation_llm_response}"
@@ -166,6 +169,7 @@ class LLMQueryProcessor:
             llm=self.llm,
             temperature=self.temperature,
             api_key=self._api_key,
+            llm_config=self._llm_connection_config,
         )
         self.logger.debug(f"(Response) Best tables: {best_tables_llm_response}")
 
@@ -197,6 +201,7 @@ class LLMQueryProcessor:
             llm=self.llm,
             temperature=self.temperature,
             api_key=self._api_key,
+            llm_config=self._llm_connection_config,
         )
         self.logger.debug(f"(Response) Best columns: {best_columns_llm_response}")
 
@@ -238,6 +243,7 @@ class LLMQueryProcessor:
             llm=self.llm,
             temperature=self.temperature,
             api_key=self._api_key,
+            llm_config=self._llm_connection_config,
         )
         self.logger.debug(f"(Response) SQL query: {sql_query_llm_response}")
 
@@ -269,6 +275,7 @@ class LLMQueryProcessor:
             llm=self.llm,
             temperature=self.temperature,
             api_key=self._api_key,
+            llm_config=self._llm_connection_config,
         )
         self.logger.debug(f"(Response) Final answer: {final_answer_llm_response}")
 
@@ -292,7 +299,9 @@ class LLMQueryProcessor:
             self.status = ProcessorStatus.INTERNAL_ERROR
 
     @track_time(create_class_attr="timings")
-    async def process_query(self, api_key: str | None = None) -> None:
+    async def process_query(
+        self, api_key: str | None = None, llm_connection_config: dict | None = None
+    ) -> None:
         """
         The function processes the user query and returns the final answer.
 
@@ -300,6 +309,7 @@ class LLMQueryProcessor:
             api_key (str or None): (Optional) API key to use for the LLM call
         """
         self._api_key = api_key
+        self._llm_connection_config = llm_connection_config
 
         # Get query language and translation
         await self._get_query_language_from_llm()
@@ -314,6 +324,7 @@ class LLMQueryProcessor:
             self.query_language,
             self.query_script,
             api_key=self._api_key,
+            llm_config=self._llm_connection_config,
         )
         self.logger.debug(f"(Guardrails) Safety: {self.guardrails.safe}")
         if self.guardrails.safe is False:
@@ -327,6 +338,7 @@ class LLMQueryProcessor:
             self.query_script,
             self.table_description,
             api_key=self._api_key,
+            llm_config=self._llm_connection_config,
         )
         self.logger.debug(f"(Guardrails) Relevance: {self.guardrails.relevant}")
         if self.guardrails.relevant is False:
@@ -336,6 +348,7 @@ class LLMQueryProcessor:
         await self._run_data_analysis()
 
         self._api_key = None
+        self._llm_connection_config = None
 
         # Set to success if no Internal Errors
         if self.status != ProcessorStatus.INTERNAL_ERROR:
@@ -418,6 +431,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             llm=self.llm,
             temperature=self.temperature,
             api_key=self._api_key,
+            llm_config=self._llm_connection_config,
         )
         self.logger.debug(f"(Response) Query type: {query_type_llm_response}")
         self.query_type = int(query_type_llm_response["answer"]["question_type"])
@@ -439,6 +453,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             llm=self.llm,
             temperature=self.temperature,
             api_key=self._api_key,
+            llm_config=self._llm_connection_config,
         )
 
         self.reframed_query = reframed_query_llm_response["answer"]["reframed_query"]
@@ -459,6 +474,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             llm=self.llm,
             temperature=self.temperature,
             api_key=self._api_key,
+            llm_config=self._llm_connection_config,
         )
         self.final_answer = clarifying_answer_llm_response["answer"]["answer"]
         self.cost += float(clarifying_answer_llm_response["cost"])
@@ -483,12 +499,15 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             llm=self.llm,
             temperature=self.temperature,
             api_key=self._api_key,
+            llm_config=self._llm_connection_config,
         )
         self.translated_final_answer = translated_final_answer_llm_response["answer"]
         self.cost += float(translated_final_answer_llm_response["cost"])
 
     @track_time(create_class_attr="timings")
-    async def process_query(self, api_key: str | None = None) -> None:
+    async def process_query(
+        self, api_key: str | None = None, llm_connection_config: dict | None = None
+    ) -> None:
         """
         The function processes the user query and returns the final answer.
 
@@ -496,6 +515,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             api_key (str or None): (Optional) API key to use for the LLM call
         """
         self._api_key = api_key
+        self._llm_connection_config = llm_connection_config
 
         # Get query language
         await self._get_query_language_from_llm()
@@ -519,6 +539,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             self.query_language,
             self.query_script,
             api_key=self._api_key,
+            llm_config=self._llm_connection_config,
         )
 
         if self.guardrails.safe is False:
@@ -532,6 +553,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
             self.query_script,
             self.table_description,
             api_key=self._api_key,
+            llm_config=self._llm_connection_config,
         )
 
         if self.guardrails.relevant is False:
@@ -549,6 +571,7 @@ class MultiTurnQueryProcessor(LLMQueryProcessor):
         await self._get_translated_final_answer()
 
         self._api_key = None
+        self._llm_connection_config = None
 
         # Set to success if no Internal Errors
         if self.status != ProcessorStatus.INTERNAL_ERROR:

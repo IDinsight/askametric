@@ -42,7 +42,12 @@ class LLMGuardRails:
         self.relevance_response = ""
 
     async def check_safety(
-        self, query: str, language: str, script: str, api_key: str | None
+        self,
+        query: str,
+        language: str,
+        script: str,
+        api_key: str | None,
+        llm_config: dict | None = None,
     ) -> dict:
         """
         Handle the PII in the query.
@@ -55,6 +60,7 @@ class LLMGuardRails:
             self.guardrails_llm,
             self.temperature,
             api_key=api_key,
+            llm_config=llm_config,
         )
         self.safe = safety_response["answer"]["safe"] == "True"
         if self.safe is False:
@@ -73,6 +79,7 @@ class LLMGuardRails:
         script: str,
         table_description: str,
         api_key: str | None = None,
+        llm_config: dict | None = None,
     ) -> dict:
         """
         Handle the relevance of the query.
@@ -87,6 +94,7 @@ class LLMGuardRails:
             self.guardrails_llm,
             self.temperature,
             api_key=api_key,
+            llm_config=llm_config,
         )
         self.relevant = relevance_response["answer"]["relevant"] == "True"
         if self.relevant is False:

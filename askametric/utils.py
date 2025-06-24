@@ -99,6 +99,7 @@ async def ask_llm_json(
     llm: str = "gpt-4o",
     temperature: float = 0.1,
     api_key: str | None = None,
+    llm_config: dict | None = None,
 ) -> dict:
     """
     A generic function to ask the LLM model a question and return
@@ -118,6 +119,7 @@ async def ask_llm_json(
             {"content": prompt, "role": "user"},
         ],
         api_key=api_key,
+        **llm_config if llm_config else {},
     )
 
     cost = completion_cost(response)

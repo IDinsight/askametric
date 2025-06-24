@@ -47,6 +47,7 @@ class DatabaseDescriptor:
         table_description: str,
         column_description: str = "",
         api_key: str | None = None,
+        llm_connection_config: dict | None = None,
     ) -> str:
         """
         Generate a database description.
@@ -77,6 +78,7 @@ class DatabaseDescriptor:
                 llm=self.llm,
                 temperature=self.temperature,
                 api_key=api_key,
+                llm_config=llm_connection_config,
             )
             self.logger.debug(
                 f"Generated description for {metric_db_id}: {generated_description}"
@@ -99,6 +101,7 @@ class DatabaseDescriptor:
         table_description: str,
         column_description: str | None = None,
         api_key: str | None = None,
+        llm_connection_config: dict | None = None,
     ) -> str:
         """
         Generate suggested questions based on the database description.
@@ -129,6 +132,7 @@ class DatabaseDescriptor:
                 llm=self.llm,
                 temperature=self.temperature,
                 api_key=api_key,
+                llm_config=llm_connection_config,
             )
             self.logger.debug(
                 f"Generated questions for {metric_db_id}:{generated_questions}"
