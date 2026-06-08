@@ -1,3 +1,6 @@
+![maintenance-status](https://img.shields.io/badge/maintenance-as--is-yellow.svg)
+
+
 # Ask a Metric
 
 Ask-a-Metric is a Text-2-SQL python package which helps you answer questions using information from databases.
