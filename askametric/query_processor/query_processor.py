@@ -65,7 +65,7 @@ class LLMQueryProcessor:
         self.asession = asession
         self.metric_db_id = metric_db_id
         self.db_type = db_type
-        self.tools: SQLTools = get_tools()
+        self.tools: SQLTools = get_tools(db_type=db_type)  # Pass db_type here
         self.temperature = 0.1
         self.llm = llm
         self.system_message = sys_message
